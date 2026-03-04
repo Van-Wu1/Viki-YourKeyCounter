@@ -1,0 +1,13 @@
+{
+  "name": "keycounter-api",
+  "version": "1.0.0",
+  "description": "Local API server for KeyCounter (AutoHotkey key/mouse tracker)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
+
