@@ -5,6 +5,7 @@
 # ----- 运行时数据（用户本地统计，不应提交） -----
 count.ini
 gui.ini
+health_status.ini
 data/*.ini
 
 # ----- Node.js / API -----

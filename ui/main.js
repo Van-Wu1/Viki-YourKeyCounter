@@ -571,16 +571,40 @@
     const height = parseInt(p.Height, 10) || 70;
     const transparency = parseInt(p.Transparency, 10) || 94;
     const borderRadius = parseInt(p.BorderRadius, 10) || 14;
+    const sittingEnabled = p.SittingEnabled !== '0';
+    const sittingMinutes = parseInt(p.SittingMinutes, 10) || 120;
+    const tenosynovitisEnabled = p.TenosynovitisEnabled !== '0';
+    const keyboardThreshold = parseInt(p.KeyboardThreshold, 10) || 50000;
+    const mouseThreshold = parseInt(p.MouseThreshold, 10) || 10000;
+    const waterEnabled = p.WaterEnabled !== '0';
+    const waterMinutes = parseInt(p.WaterMinutes, 10) || 45;
+    const reminderCooldown = parseInt(p.ReminderCooldown, 10) || 1;
 
     const wEl = document.getElementById('prefWidth');
     const hEl = document.getElementById('prefHeight');
     const tEl = document.getElementById('prefTransparency');
     const bEl = document.getElementById('prefBorderRadius');
     const tVal = document.getElementById('prefTransparencyVal');
+    const seEl = document.getElementById('prefSittingEnabled');
+    const smEl = document.getElementById('prefSittingMinutes');
+    const teEl = document.getElementById('prefTenosynovitisEnabled');
+    const ktEl = document.getElementById('prefKeyboardThreshold');
+    const mtEl = document.getElementById('prefMouseThreshold');
+    const weEl = document.getElementById('prefWaterEnabled');
+    const wmEl = document.getElementById('prefWaterMinutes');
+    const rcEl = document.getElementById('prefReminderCooldown');
     if (wEl) wEl.value = width;
     if (hEl) hEl.value = height;
     if (tEl) { tEl.value = transparency; tVal.textContent = transparency; }
     if (bEl) bEl.value = borderRadius;
+    if (seEl) seEl.checked = sittingEnabled;
+    if (smEl) smEl.value = sittingMinutes;
+    if (teEl) teEl.checked = tenosynovitisEnabled;
+    if (ktEl) ktEl.value = keyboardThreshold;
+    if (mtEl) mtEl.value = mouseThreshold;
+    if (weEl) weEl.checked = waterEnabled;
+    if (wmEl) wmEl.value = waterMinutes;
+    if (rcEl) rcEl.value = reminderCooldown;
 
     if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; };
   }
@@ -592,6 +616,14 @@
     const height = parseInt(document.getElementById('prefHeight').value, 10) || 70;
     const transparency = parseInt(document.getElementById('prefTransparency').value, 10) || 94;
     const borderRadius = parseInt(document.getElementById('prefBorderRadius').value, 10) || 14;
+    const sittingEnabled = document.getElementById('prefSittingEnabled').checked ? '1' : '0';
+    const sittingMinutes = parseInt(document.getElementById('prefSittingMinutes').value, 10) || 120;
+    const tenosynovitisEnabled = document.getElementById('prefTenosynovitisEnabled').checked ? '1' : '0';
+    const keyboardThreshold = parseInt(document.getElementById('prefKeyboardThreshold').value, 10) || 0;
+    const mouseThreshold = parseInt(document.getElementById('prefMouseThreshold').value, 10) || 0;
+    const waterEnabled = document.getElementById('prefWaterEnabled').checked ? '1' : '0';
+    const waterMinutes = parseInt(document.getElementById('prefWaterMinutes').value, 10) || 45;
+    const reminderCooldown = parseInt(document.getElementById('prefReminderCooldown').value, 10) || 1;
 
     const lines = [
       '[Floating]',
@@ -603,7 +635,15 @@
       'Width=' + width,
       'Height=' + height,
       'Transparency=' + transparency,
-      'BorderRadius=' + borderRadius
+      'BorderRadius=' + borderRadius,
+      'SittingEnabled=' + sittingEnabled,
+      'SittingMinutes=' + sittingMinutes,
+      'TenosynovitisEnabled=' + tenosynovitisEnabled,
+      'KeyboardThreshold=' + keyboardThreshold,
+      'MouseThreshold=' + mouseThreshold,
+      'WaterEnabled=' + waterEnabled,
+      'WaterMinutes=' + waterMinutes,
+      'ReminderCooldown=' + reminderCooldown
     ];
     const content = lines.join('\r\n');
 
@@ -614,10 +654,16 @@
         body: JSON.stringify({ content })
       });
       if (res.ok) {
-        alert('设置已保存，悬浮框将自动更新。');
+        showToast('已保存');
         window.__KEYCOUNTER_GUI_INI__ = {
           Floating: f,
-          Preferences: { Width: String(width), Height: String(height), Transparency: String(transparency), BorderRadius: String(borderRadius) }
+          Preferences: {
+            Width: String(width), Height: String(height), Transparency: String(transparency), BorderRadius: String(borderRadius),
+            SittingEnabled: sittingEnabled, SittingMinutes: String(sittingMinutes),
+            TenosynovitisEnabled: tenosynovitisEnabled, KeyboardThreshold: String(keyboardThreshold),
+            MouseThreshold: String(mouseThreshold), WaterEnabled: waterEnabled, WaterMinutes: String(waterMinutes),
+            ReminderCooldown: String(reminderCooldown)
+          }
         };
       } else {
         throw new Error(res.statusText);
@@ -626,6 +672,15 @@
       console.error('savePrefs failed:', e);
       alert('保存失败：' + (e.message || '请重试。'));
     }
+  }
+
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('visible');
+    clearTimeout(el._toastTimer);
+    el._toastTimer = setTimeout(() => el.classList.remove('visible'), 1500);
   }
 
   document.getElementById('prefsSaveBtn').onclick = savePrefs;

@@ -19,14 +19,48 @@ html, body {
   border: 1px solid rgba(0, 0, 0, 0.06);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
+
+.health-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.health-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #9ca3af;
+  background: transparent;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.dot-sitting.active { background: #ef4444; border-color: #ef4444; animation: dot-blink 1.2s ease-in-out infinite; }
+.dot-tenosynovitis.active { background: #eab308; border-color: #eab308; animation: dot-blink 1.2s ease-in-out infinite; }
+.dot-water.active { background: #3b82f6; border-color: #3b82f6; animation: dot-blink 1.2s ease-in-out infinite; }
 
 .title {
   font-size: 10px;
   font-weight: 600;
   color: #374151;
   text-align: center;
-  margin-bottom: 4px;
+  flex: 1;
+  margin: 0;
 }
 
 .separator {

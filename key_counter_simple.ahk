@@ -34,6 +34,10 @@ currentDayId =
 dashboardPid =
 apiPid =
 needSaveState = 0
+lastSittingReminderTime = 0
+lastTenosynovitisReminderTime = 0
+lastWaterReminderTime = 0
+continuousSessionStart = 0
 
 ;-------------------------
 ; 初始化
@@ -50,6 +54,7 @@ Menu, Tray, NoStandard
 Menu, Tray, Add, Open Dashboard, OpenDashboard
 SetTimer, CheckWidgetCommand, 500
 SetTimer, FlushSave, 2000
+SetTimer, CheckHealthReminders, 60000
 Menu, Tray, Default, Open Dashboard
 Menu, Tray, Add, Preferences, Preferences
 Menu, Tray, Add, Show Window, ShowGui
@@ -294,6 +299,133 @@ FlushSave:
 return
 
 ;-------------------------
+; 健康提醒（三模块：久坐、腱鞘炎、喝水）
+;-------------------------
+CheckHealthReminders:
+    Gosub, CheckSittingReminder
+    Gosub, CheckTenosynovitisReminder
+    Gosub, CheckWaterReminder
+    Gosub, WriteHealthStatus
+return
+
+; 久坐提醒：键鼠一直操作 N 分钟，中途无操作少于5分钟则属"一直操作"
+CheckSittingReminder:
+    IfNotExist, gui.ini
+        return
+    IniRead, enabled, gui.ini, Preferences, SittingEnabled, 1
+    if (enabled != 1)
+        return
+    IniRead, sittingMins, gui.ini, Preferences, SittingMinutes, 120
+    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
+    sittingMins := sittingMins + 0
+    cooldownMin := cooldownMin + 0
+    now := A_Now
+    idleMs := A_TimeIdlePhysical
+    idleMins := idleMs / 60000
+    if (idleMins >= 5) {
+        ; 超过5分钟无操作，视为休息，重置连续操作起点
+        continuousSessionStart := now
+        IniWrite, 0, health_status.ini, Status, Sitting
+        return
+    }
+    if (continuousSessionStart = 0)
+        continuousSessionStart := now
+    diffMins := now
+    EnvSub, diffMins, %continuousSessionStart%, Minutes
+    if (diffMins < sittingMins) {
+        IniWrite, 0, health_status.ini, Status, Sitting
+        return
+    }
+    diffCooldown := now
+    EnvSub, diffCooldown, %lastSittingReminderTime%, Minutes
+    if (lastSittingReminderTime > 0 && diffCooldown < cooldownMin)
+        return
+    lastSittingReminderTime := now
+    continuousSessionStart := now
+    IniWrite, 1, health_status.ini, Status, Sitting
+return
+
+; 腱鞘炎提醒：当日键盘/鼠标超过阈值
+CheckTenosynovitisReminder:
+    IfNotExist, gui.ini
+        return
+    IniRead, enabled, gui.ini, Preferences, TenosynovitisEnabled, %A_Space%
+    if (enabled = "")
+        IniRead, enabled, gui.ini, Preferences, ReminderEnabled, 1
+    if (enabled != 1)
+        return
+    IniRead, kbThreshold, gui.ini, Preferences, KeyboardThreshold, 50000
+    IniRead, mouseThreshold, gui.ini, Preferences, MouseThreshold, 10000
+    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
+    kbThreshold := kbThreshold + 0
+    mouseThreshold := mouseThreshold + 0
+    cooldownMin := cooldownMin + 0
+    if (kbThreshold <= 0 && mouseThreshold <= 0) {
+        IniWrite, 0, health_status.ini, Status, Tenosynovitis
+        return
+    }
+    todayMouse := todayMouseLeft + todayMouseRight + todayWheelUp + todayWheelDown
+    exceeded := 0
+    if (kbThreshold > 0 && todayKeyboard >= kbThreshold)
+        exceeded := 1
+    if (mouseThreshold > 0 && todayMouse >= mouseThreshold)
+        exceeded := 1
+    if (exceeded = 0) {
+        IniWrite, 0, health_status.ini, Status, Tenosynovitis
+        return
+    }
+    now := A_Now
+    diffMins := now
+    EnvSub, diffMins, %lastTenosynovitisReminderTime%, Minutes
+    if (lastTenosynovitisReminderTime > 0 && diffMins < cooldownMin)
+        return
+    lastTenosynovitisReminderTime := now
+    IniWrite, 1, health_status.ini, Status, Tenosynovitis
+    TrayTip, KeyCounter 腱鞘炎提醒, 今日使用量已达阈值，建议休息片刻，预防腱鞘炎。, 10, 1
+return
+
+; 喝水提醒：每隔 N 分钟定时提醒
+CheckWaterReminder:
+    IfNotExist, gui.ini
+        return
+    IniRead, enabled, gui.ini, Preferences, WaterEnabled, 1
+    if (enabled != 1)
+        return
+    IniRead, waterMins, gui.ini, Preferences, WaterMinutes, 45
+    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
+    waterMins := waterMins + 0
+    cooldownMin := cooldownMin + 0
+    now := A_Now
+    if (lastWaterReminderTime = 0) {
+        lastWaterReminderTime := now
+        IniWrite, 0, health_status.ini, Status, Water
+        return
+    }
+    diffMins := now
+    EnvSub, diffMins, %lastWaterReminderTime%, Minutes
+    if (diffMins < waterMins) {
+        IniWrite, 0, health_status.ini, Status, Water
+        return
+    }
+    diffCooldown := now
+    EnvSub, diffCooldown, %lastWaterReminderTime%, Minutes
+    if (diffCooldown < cooldownMin)
+        return
+    lastWaterReminderTime := now
+    IniWrite, 1, health_status.ini, Status, Water
+return
+
+; 统一写入 health_status.ini（冷却结束后写回 0 由各模块负责）
+WriteHealthStatus:
+    IfNotExist, health_status.ini
+    {
+        IniWrite, 0, health_status.ini, Status, Sitting
+        IniWrite, 0, health_status.ini, Status, Tenosynovitis
+        IniWrite, 0, health_status.ini, Status, Water
+    }
+return
+
+;-------------------------
 ; GUI：悬浮框 - Electron Widget（读写 gui.ini 与 count.ini）
 ;-------------------------
 InitGui:
@@ -495,6 +627,7 @@ return
 Reset:
     SetTimer, CheckWidgetCommand, Off
     SetTimer, FlushSave, Off
+    SetTimer, CheckHealthReminders, Off
     if (needSaveState)
         Gosub, FlushSave
     if (apiPid)
@@ -514,6 +647,7 @@ Reset:
 ExitAppLabel:
     SetTimer, CheckWidgetCommand, Off
     SetTimer, FlushSave, Off
+    SetTimer, CheckHealthReminders, Off
     if (needSaveState)
         Gosub, FlushSave
     if (apiPid)

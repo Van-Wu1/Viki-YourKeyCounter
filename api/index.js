@@ -130,7 +130,15 @@ function buildDashboardData() {
         Width: prefs.Width || '160',
         Height: prefs.Height || '70',
         Transparency: prefs.Transparency || '94',
-        BorderRadius: prefs.BorderRadius || '14'
+        BorderRadius: prefs.BorderRadius || '14',
+        SittingEnabled: prefs.SittingEnabled || '1',
+        SittingMinutes: prefs.SittingMinutes || '120',
+        TenosynovitisEnabled: (prefs.TenosynovitisEnabled !== undefined && prefs.TenosynovitisEnabled !== '') ? prefs.TenosynovitisEnabled : (prefs.ReminderEnabled || '1'),
+        KeyboardThreshold: prefs.KeyboardThreshold || '50000',
+        MouseThreshold: prefs.MouseThreshold || '10000',
+        WaterEnabled: prefs.WaterEnabled || '1',
+        WaterMinutes: prefs.WaterMinutes || '45',
+        ReminderCooldown: prefs.ReminderCooldown || '1'
       }
     }
   };

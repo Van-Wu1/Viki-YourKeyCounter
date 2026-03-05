@@ -145,6 +145,44 @@
               <input type="number" id="prefBorderRadius" min="0" max="30" step="2" />
               <span class="prefs-unit">px</span>
             </div>
+            <h4 class="prefs-section-title">健康提醒</h4>
+            <div class="prefs-subsection">久坐提醒（红点）</div>
+            <div class="prefs-row prefs-row-checkbox">
+              <label><input type="checkbox" id="prefSittingEnabled" checked /> 启用久坐提醒</label>
+            </div>
+            <div class="prefs-row">
+              <label>连续操作</label>
+              <input type="number" id="prefSittingMinutes" min="30" max="480" step="10" value="120" />
+              <span class="prefs-unit">分钟后提醒（中途休息≥5分钟视为断开）</span>
+            </div>
+            <div class="prefs-subsection">腱鞘炎提醒（黄点）</div>
+            <div class="prefs-row prefs-row-checkbox">
+              <label><input type="checkbox" id="prefTenosynovitisEnabled" checked /> 启用腱鞘炎提醒</label>
+            </div>
+            <div class="prefs-row">
+              <label>键盘阈值</label>
+              <input type="number" id="prefKeyboardThreshold" min="0" step="1000" placeholder="50000" />
+              <span class="prefs-unit">次/日（0=不限制）</span>
+            </div>
+            <div class="prefs-row">
+              <label>鼠标阈值</label>
+              <input type="number" id="prefMouseThreshold" min="0" step="1000" placeholder="10000" />
+              <span class="prefs-unit">次/日（0=不限制）</span>
+            </div>
+            <div class="prefs-subsection">喝水提醒（蓝点）</div>
+            <div class="prefs-row prefs-row-checkbox">
+              <label><input type="checkbox" id="prefWaterEnabled" checked /> 启用喝水提醒</label>
+            </div>
+            <div class="prefs-row">
+              <label>提醒间隔</label>
+              <input type="number" id="prefWaterMinutes" min="15" max="180" value="45" />
+              <span class="prefs-unit">分钟</span>
+            </div>
+            <div class="prefs-row">
+              <label>冷却时间</label>
+              <input type="number" id="prefReminderCooldown" min="1" max="60" value="1" />
+              <span class="prefs-unit">分钟（各模块提醒后冷却）</span>
+            </div>
             <button type="button" class="prefs-save-btn" id="prefsSaveBtn">保存设置</button>
               </div>
             </div>
@@ -158,6 +196,7 @@
     </main>
   </div>
 
+  <div id="toast" class="toast" aria-live="polite"></div>
   <script src="main.js"></script>
 </body>
 </html>

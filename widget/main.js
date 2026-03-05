@@ -7,6 +7,7 @@ const WIDGET_CMD_FILE = path.join(APP_ROOT, 'keycounter_widget_cmd.txt');
 const DEFAULT_PREFS = { width: 160, height: 70, transparency: 94, borderRadius: 14 };
 const GUI_INI = path.join(APP_ROOT, 'gui.ini');
 const COUNT_INI = path.join(APP_ROOT, 'count.ini');
+const HEALTH_STATUS_INI = path.join(APP_ROOT, 'health_status.ini');
 
 function parseIni(filePath) {
   const obj = {};
@@ -45,7 +46,14 @@ function getPrefs() {
     width: parseInt(p.Width, 10) || DEFAULT_PREFS.width,
     height: parseInt(p.Height, 10) || DEFAULT_PREFS.height,
     transparency: parseInt(p.Transparency, 10) || DEFAULT_PREFS.transparency,
-    borderRadius: parseInt(p.BorderRadius, 10) || DEFAULT_PREFS.borderRadius
+    borderRadius: parseInt(p.BorderRadius, 10) || DEFAULT_PREFS.borderRadius,
+    sittingEnabled: p.SittingEnabled !== '0',
+    sittingMinutes: parseInt(p.SittingMinutes, 10) || 120,
+    tenosynovitisEnabled: p.TenosynovitisEnabled !== '0',
+    keyboardThreshold: parseInt(p.KeyboardThreshold, 10) || 0,
+    mouseThreshold: parseInt(p.MouseThreshold, 10) || 0,
+    waterEnabled: p.WaterEnabled !== '0',
+    waterMinutes: parseInt(p.WaterMinutes, 10) || 45
   };
 }
 
@@ -72,10 +80,21 @@ function getTodayCounts() {
   return { keyboard: kb, mouse: ml + mr + wu + wd };
 }
 
+function getHealthStatus() {
+  const ini = parseIni(HEALTH_STATUS_INI);
+  const s = ini.Status || {};
+  return {
+    sitting: s.Sitting === '1',
+    tenosynovitis: s.Tenosynovitis === '1',
+    water: s.Water === '1'
+  };
+}
+
 let win = null;
 let tickInterval = null;
 let lastAppliedPrefs = null;
 let lastCountsStr = '';
+let lastHealthStatusStr = '';
 
 function createWindow() {
   const prefs = getPrefs();
@@ -107,7 +126,7 @@ function createWindow() {
   });
 
   win.setMenuBarVisibility(false);
-  win.setTitle('KeyCounter Widget');
+  win.setTitle('Viki Widget');
   win.loadFile(path.join(__dirname, 'widget.html'));
 
   function writeWidgetCmd(cmd) {
@@ -196,11 +215,14 @@ function createWindow() {
     try {
       const counts = getTodayCounts();
       const countsStr = counts.keyboard + ',' + counts.mouse;
-      if (countsStr !== lastCountsStr) {
+      const health = getHealthStatus();
+      const healthStr = JSON.stringify(health);
+      if (countsStr !== lastCountsStr || healthStr !== lastHealthStatusStr) {
         lastCountsStr = countsStr;
+        lastHealthStatusStr = healthStr;
         win.webContents.send('widget-counts', counts);
         win.webContents.executeJavaScript(
-          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();})();`
+          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();var s=document.getElementById('dot-sitting');var t=document.getElementById('dot-tenosynovitis');var w=document.getElementById('dot-water');if(s){if(${health.sitting})s.classList.add('active');else s.classList.remove('active');}if(t){if(${health.tenosynovitis})t.classList.add('active');else t.classList.remove('active');}if(w){if(${health.water})w.classList.add('active');else w.classList.remove('active');}})();`
         ).catch(() => {});
       }
       const ini = getGuiIni();
