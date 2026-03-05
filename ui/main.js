@@ -153,6 +153,7 @@
     grid.style.gridTemplateColumns = `repeat(${WEEKS}, 12px)`;
     grid.style.gridTemplateRows = `repeat(7, 12px)`;
 
+    const frag = document.createDocumentFragment();
     for (let dow = 0; dow < 7; dow++) {
       for (let w = 0; w < WEEKS; w++) {
         const d = new Date(startDate);
@@ -171,9 +172,10 @@
         cell.dataset.activity = activity;
         cell.dataset.keys = info ? (info.totals?.keyboard || 0) : 0;
         cell.dataset.mouse = info ? ((info.totals?.mouseLeft || 0) + (info.totals?.mouseRight || 0) + (info.totals?.wheelUp || 0) + (info.totals?.wheelDown || 0)) : 0;
-        grid.appendChild(cell);
+        frag.appendChild(cell);
       }
     }
+    grid.appendChild(frag);
 
     const byMonth = {};
     for (const d of dayObjs) {
@@ -471,10 +473,15 @@
     return trendChartInstance;
   }
 
+  let resizeTimer = 0;
   window.addEventListener('resize', () => {
-    keyChartInstance?.resize();
-    mouseChartInstance?.resize();
-    trendChartInstance?.resize();
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      resizeTimer = 0;
+      keyChartInstance?.resize();
+      mouseChartInstance?.resize();
+      trendChartInstance?.resize();
+    }, 100);
   });
 
   function initNav() {

@@ -7,3 +7,9 @@ function updateUI(data) {
 }
 
 ipcRenderer.on('widget-counts', (_, data) => updateUI(data));
+
+ipcRenderer.on('widget-context-menu-shown', () => {
+  document.addEventListener('mousedown', (e) => {
+    if (e.button === 0) ipcRenderer.send('widget-close-context-menu');
+  }, { once: true });
+});

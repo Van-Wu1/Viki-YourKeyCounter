@@ -1,8 +1,9 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const APP_ROOT = path.resolve(__dirname, '..');
+const WIDGET_CMD_FILE = path.join(APP_ROOT, 'keycounter_widget_cmd.txt');
 const DEFAULT_PREFS = { width: 160, height: 70, transparency: 94, borderRadius: 14 };
 const GUI_INI = path.join(APP_ROOT, 'gui.ini');
 const COUNT_INI = path.join(APP_ROOT, 'count.ini');
@@ -72,8 +73,9 @@ function getTodayCounts() {
 }
 
 let win = null;
-let visibilityCheckInterval = null;
+let tickInterval = null;
 let lastAppliedPrefs = null;
+let lastCountsStr = '';
 
 function createWindow() {
   const prefs = getPrefs();
@@ -83,7 +85,6 @@ function createWindow() {
   let y = parseInt(floating.Y, 10);
   const initialVisible = (ini.Floating || {}).Visible;
   if (isNaN(x) || isNaN(y)) {
-    const { screen } = require('electron');
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     x = Math.floor((width - prefs.width) / 2);
     y = Math.floor((height - prefs.height) / 2);
@@ -109,24 +110,111 @@ function createWindow() {
   win.setTitle('KeyCounter Widget');
   win.loadFile(path.join(__dirname, 'widget.html'));
 
+  function writeWidgetCmd(cmd) {
+    try { fs.writeFileSync(WIDGET_CMD_FILE, cmd); } catch (_) {}
+  }
+
+  let lastContextMenu = null;
+  let overlayWins = [];
+
+  function closeContextMenuAndOverlay() {
+    ipcMain.removeListener('overlay-clicked', closeContextMenuAndOverlay);
+    if (lastContextMenu && win && !win.isDestroyed()) {
+      lastContextMenu.closePopup(win);
+      lastContextMenu = null;
+    }
+    for (const ow of overlayWins) {
+      if (ow && !ow.isDestroyed()) ow.destroy();
+    }
+    overlayWins = [];
+  }
+
+  function showWidgetContextMenu(screenX, screenY) {
+    const menu = Menu.buildFromTemplate([
+      { label: 'Open Dashboard', click: () => writeWidgetCmd('OpenDashboard') },
+      { label: 'Preferences', click: () => writeWidgetCmd('Preferences') },
+      { type: 'separator' },
+      { label: 'Update check', click: () => writeWidgetCmd('UpdateCheck') },
+      { label: 'Open source', click: () => writeWidgetCmd('OpenSource') },
+      { type: 'separator' },
+      { label: 'Reset', click: () => writeWidgetCmd('Reset') }
+    ]);
+    lastContextMenu = menu;
+    menu.on('menu-will-close', () => { closeContextMenuAndOverlay(); });
+
+    const displays = screen.getAllDisplays();
+    overlayWins = displays.map((d) => {
+      const b = d.bounds;
+      const ow = new BrowserWindow({
+        x: b.x, y: b.y, width: b.width, height: b.height,
+        frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true,
+        focusable: false,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+      });
+      ow.setIgnoreMouseEvents(false);
+      ow.loadFile(path.join(__dirname, 'overlay.html'));
+      return ow;
+    });
+
+    let shown = 0;
+    const tryShowMenu = () => {
+      shown++;
+      if (shown >= overlayWins.length) {
+        if (screenX != null && screenY != null && !isNaN(screenX) && !isNaN(screenY)) {
+          menu.popup({ window: win, x: Math.round(screenX), y: Math.round(screenY) });
+        } else {
+          menu.popup({ window: win });
+        }
+      }
+    };
+    overlayWins.forEach((ow) => {
+      ow.once('ready-to-show', () => {
+        ow.show();
+        tryShowMenu();
+      });
+    });
+
+    ipcMain.once('overlay-clicked', closeContextMenuAndOverlay);
+    win.webContents.send('widget-context-menu-shown');
+  }
+
+  ipcMain.on('widget-close-context-menu', closeContextMenuAndOverlay);
+
+  win.on('system-context-menu', (e, point) => {
+    e.preventDefault();
+    const x = point?.x != null ? Math.round(point.x) : null;
+    const y = point?.y != null ? Math.round(point.y) : null;
+    showWidgetContextMenu(x, y);
+  });
+
   win.webContents.once('did-finish-load', () => {
     applyPrefsToWindow(win, prefs);
   });
 
-  const sendCounts = () => {
-    if (win && !win.isDestroyed()) {
-      try {
-        const counts = getTodayCounts();
+  const tick = () => {
+    if (!win || win.isDestroyed()) return;
+    try {
+      const counts = getTodayCounts();
+      const countsStr = counts.keyboard + ',' + counts.mouse;
+      if (countsStr !== lastCountsStr) {
+        lastCountsStr = countsStr;
         win.webContents.send('widget-counts', counts);
         win.webContents.executeJavaScript(
           `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();})();`
         ).catch(() => {});
-      } catch (_) {}
-    }
+      }
+      const ini = getGuiIni();
+      const visible = (ini.Floating || {}).Visible;
+      const newPrefs = getPrefs();
+      if (visible === '0') win.hide();
+      else win.show();
+      applyPrefsToWindow(win, newPrefs);
+    } catch (_) {}
   };
-  win.webContents.once('did-finish-load', sendCounts);
-  const countInterval = setInterval(sendCounts, 500);
-  win.on('closed', () => { clearInterval(countInterval); win = null; });
+  win.webContents.once('did-finish-load', tick);
+  tickInterval = setInterval(tick, 500);
+  win.on('closed', () => { clearInterval(tickInterval); win = null; });
+
 
   win.on('moved', () => {
     const [wx, wy] = win.getPosition();
@@ -144,22 +232,12 @@ function createWindow() {
   });
 
   if (initialVisible === '0') win.hide();
-
-  visibilityCheckInterval = setInterval(() => {
-    const ini = getGuiIni();
-    const visible = (ini.Floating || {}).Visible;
-    const newPrefs = getPrefs();
-    if (!win || win.isDestroyed()) return;
-    if (visible === '0') win.hide();
-    else win.show();
-    applyPrefsToWindow(win, newPrefs);
-  }, 500);
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (visibilityCheckInterval) clearInterval(visibilityCheckInterval);
+  if (tickInterval) clearInterval(tickInterval);
   app.quit();
 });
 

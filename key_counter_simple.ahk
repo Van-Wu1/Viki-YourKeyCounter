@@ -33,6 +33,7 @@ isGuiShown = 0
 currentDayId =
 dashboardPid =
 dashboardTempBase =
+needSaveState = 0
 
 ;-------------------------
 ; 初始化
@@ -47,6 +48,8 @@ Gosub, SaveDaySnapshot
 ; 托盘菜单
 Menu, Tray, NoStandard
 Menu, Tray, Add, Open Dashboard, OpenDashboard
+SetTimer, CheckWidgetCommand, 500
+SetTimer, FlushSave, 2000
 Menu, Tray, Default, Open Dashboard
 Menu, Tray, Add, Preferences, Preferences
 Menu, Tray, Add, Show Window, ShowGui
@@ -57,6 +60,27 @@ Menu, Tray, Add, Open source, OpenSource
 Menu, Tray, Add
 Menu, Tray, Add, Reset, Reset
 Menu, Tray, Add, Exit, ExitAppLabel
+
+;-------------------------
+; 悬浮框右键菜单命令（由 widget 写入文件，此处轮询执行）
+;-------------------------
+CheckWidgetCommand:
+    widgetCmdFile = %A_ScriptDir%\keycounter_widget_cmd.txt
+    IfNotExist, %widgetCmdFile%
+        return
+    FileRead, widgetCmd, %widgetCmdFile%
+    FileDelete, %widgetCmdFile%
+    if (widgetCmd = "OpenDashboard")
+        Gosub, OpenDashboard
+    else if (widgetCmd = "Preferences")
+        Gosub, Preferences
+    else if (widgetCmd = "UpdateCheck")
+        Gosub, UpdateCheck
+    else if (widgetCmd = "OpenSource")
+        Gosub, OpenSource
+    else if (widgetCmd = "Reset")
+        Gosub, Reset
+return
 
 ;-------------------------
 ; 鼠标事件
@@ -228,6 +252,13 @@ HandleEvent:
     }
 
     Gosub, UpdateGui
+    needSaveState = 1
+return
+
+FlushSave:
+    if (needSaveState = 0)
+        return
+    needSaveState = 0
     Gosub, SaveState
     Gosub, SaveDaySnapshot
 return
@@ -590,11 +621,15 @@ UpdateCheck:
 return
 
 OpenSource:
-    Run, https://github.com/Van-Wu1?tab=repositories
+    Run, https://github.com/Van-Wu1/Viki-YourKeyCounter
 return
 
 Reset:
     SetTimer, RegenerateDashboardData, Off
+    SetTimer, CheckWidgetCommand, Off
+    SetTimer, FlushSave, Off
+    if (needSaveState)
+        Gosub, FlushSave
     dashboardTempBase =
     if (dashboardPid)
     {
@@ -607,6 +642,10 @@ Reset:
 
 ExitAppLabel:
     SetTimer, RegenerateDashboardData, Off
+    SetTimer, CheckWidgetCommand, Off
+    SetTimer, FlushSave, Off
+    if (needSaveState)
+        Gosub, FlushSave
     dashboardTempBase =
     if (dashboardPid)
     {

@@ -19,8 +19,8 @@
 
 1. 克隆仓库：
    ```bash
-   git clone https://github.com/Van-Wu1/keycounter.git
-   cd keycounter
+   git clone https://github.com/Van-Wu1/Viki-YourKeyCounter.git
+   cd Viki-YourKeyCounter
    ```
 
 2. 安装依赖：
@@ -46,7 +46,7 @@
 ## 项目结构
 
 ```
-keycounter/
+Viki-YourKeyCounter/
 ├── key_counter_simple.ahk   # 主脚本（统计、托盘、启动 Electron）
 ├── widget/                 # 悬浮框（Electron）
 │   ├── main.js
