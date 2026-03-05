@@ -97,6 +97,25 @@ function listDayIds() {
     .sort(); // yyyyMMdd lexicographical sort == chronological
 }
 
+// 内存缓存，减少重复文件 I/O（TTL 2 秒，与 AHK FlushSave 节奏一致）
+let _dashboardCache = null;
+let _dashboardCacheTime = 0;
+const CACHE_TTL_MS = 2000;
+
+function invalidateCache() {
+  _dashboardCache = null;
+}
+
+function getDashboardData() {
+  const now = Date.now();
+  if (_dashboardCache && (now - _dashboardCacheTime) < CACHE_TTL_MS) {
+    return _dashboardCache;
+  }
+  _dashboardCache = buildDashboardData();
+  _dashboardCacheTime = now;
+  return _dashboardCache;
+}
+
 // 构建 Dashboard 数据（供 /api/data 和 /data.js 共用）
 function buildDashboardData() {
   const countIni = safeReadIni(COUNT_FILE) || {};
@@ -146,45 +165,42 @@ function buildDashboardData() {
 
 // Routes
 app.get('/api/summary', (req, res) => {
-  const countIni = safeReadIni(COUNT_FILE) || {};
-  const meta = countIni.Meta || {};
-  const total = countIni.Total || {};
-
-  const dayIds = listDayIds();
-
+  const data = getDashboardData();
   res.json({
-    currentDayId: meta.DayId || null,
-    totals: {
-      keyboard: toInt(total.Keyboard),
-      mouseLeft: toInt(total.MouseLeft),
-      mouseRight: toInt(total.MouseRight),
-      wheelUp: toInt(total.WheelUp),
-      wheelDown: toInt(total.WheelDown)
-    },
-    days: dayIds
+    currentDayId: data.currentDayId,
+    totals: data.totals,
+    days: data.days
   });
 });
 
 app.get('/api/day/:dayId', (req, res) => {
   const { dayId } = req.params;
-  const data = readDay(dayId);
-  if (!data) {
-    return res.status(404).json({ error: 'day_not_found', dayId });
+  const cached = getDashboardData();
+  const d = cached.dayData[dayId];
+  if (!d) {
+    const data = readDay(dayId);
+    if (!data) {
+      return res.status(404).json({ error: 'day_not_found', dayId });
+    }
+    return res.json(data);
   }
-  res.json(data);
+  res.json({ dayId, totals: d.totals, perKey: d.perKey || {} });
 });
 
 app.get('/api/days', (req, res) => {
   const { from, to } = req.query;
-  const allIds = listDayIds();
-  const filtered = allIds.filter((id) => {
+  const cached = getDashboardData();
+  const filtered = cached.days.filter((id) => {
     if (from && id < from) return false;
     if (to && id > to) return false;
     return true;
   });
 
   const days = filtered
-    .map((id) => readDay(id))
+    .map((id) => {
+      const d = cached.dayData[id];
+      return d ? { dayId: id, totals: d.totals, perKey: d.perKey || {} } : null;
+    })
     .filter(Boolean);
 
   res.json({ days });
@@ -192,26 +208,22 @@ app.get('/api/days', (req, res) => {
 
 // Full dashboard data (currentDayId, totals, days, dayData, guiIni)
 app.get('/api/data', (req, res) => {
-  res.json(buildDashboardData());
+  res.json(getDashboardData());
 });
 
 // Export all data as JSON
 app.get('/api/export', (req, res) => {
-  const countIni = safeReadIni(COUNT_FILE) || {};
-  const dayIds = listDayIds();
-  const days = dayIds.map((id) => readDay(id)).filter(Boolean);
+  const data = getDashboardData();
+  const days = data.days.map((id) => {
+    const d = data.dayData[id];
+    return d ? { dayId: id, totals: d.totals, perKey: d.perKey || {} } : null;
+  }).filter(Boolean);
 
   const exportData = {
     exportedAt: new Date().toISOString(),
     version: '1.0',
-    meta: countIni.Meta || {},
-    totals: {
-      keyboard: toInt(countIni.Total?.Keyboard),
-      mouseLeft: toInt(countIni.Total?.MouseLeft),
-      mouseRight: toInt(countIni.Total?.MouseRight),
-      wheelUp: toInt(countIni.Total?.WheelUp),
-      wheelDown: toInt(countIni.Total?.WheelDown)
-    },
+    meta: { DayId: data.currentDayId },
+    totals: data.totals,
     days
   };
 
@@ -229,6 +241,7 @@ app.post('/api/prefs', (req, res) => {
   }
   try {
     fs.writeFileSync(GUI_INI, content, 'utf8');
+    invalidateCache();
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'write_failed', message: e.message });

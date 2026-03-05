@@ -4,7 +4,7 @@ Persistent
 SetWorkingDir A_ScriptDir
 
 ; 版本标识
-scriptVersion := "v0.3-perkey"
+scriptVersion := "v0.3-perkey-cached"
 try A_TrayMenu.Tip := "KeyCounter " scriptVersion
 
 ;-------------------------
@@ -42,6 +42,8 @@ global lastMouseEvent := ""
 global keyName := ""
 global newDayId := ""
 global dashboardHash := ""
+; PerKey 内存缓存，批量写入以减少 I/O
+global perKeyCache := Map()
 
 ;-------------------------
 ; 初始化
@@ -219,6 +221,7 @@ HandleEvent() {
     global
     CalcDayIdRuntime()
     if (newDayId != currentDayId) {
+        FlushPerKey()
         SaveDaySnapshot()
         currentDayId := newDayId
         todayKeyboard := 0
@@ -231,11 +234,9 @@ HandleEvent() {
         totalKeyboard += 1
         todayKeyboard += 1
         if (keyName != "") {
-            filePath := "data\" currentDayId ".ini"
-            cur := Integer(IniRead(filePath, "PerKey", keyName, "0"))
-            cur += 1
-            IniWrite(String(cur), filePath, "PerKey", keyName)
-            IniWrite(FormatTime(, "yyyyMMddHHmmss"), filePath, "Meta", "UpdatedAt")
+            ; 内存缓存，批量写入由 FlushPerKey 处理
+            cur := perKeyCache.Has(keyName) ? perKeyCache[keyName] : 0
+            perKeyCache[keyName] := cur + 1
         }
     } else {
         switch lastMouseEvent {
@@ -258,11 +259,26 @@ HandleEvent() {
 
 FlushSave() {
     global
-    if (needSaveState = 0)
+    if (needSaveState = 0 && perKeyCache.Count = 0)
         return
     needSaveState := 0
     SaveState()
+    FlushPerKey()
     SaveDaySnapshot()
+}
+
+; 将 PerKey 内存缓存批量写入 data/YYYYMMDD.ini，减少每次按键的 I/O
+FlushPerKey() {
+    global
+    if (perKeyCache.Count = 0 || currentDayId = "")
+        return
+    filePath := "data\" currentDayId ".ini"
+    for keyName, delta in perKeyCache {
+        cur := Integer(IniRead(filePath, "PerKey", keyName, "0"))
+        IniWrite(String(cur + delta), filePath, "PerKey", keyName)
+    }
+    perKeyCache := Map()
+    IniWrite(FormatTime(, "yyyyMMddHHmmss"), filePath, "Meta", "UpdatedAt")
 }
 
 ;-------------------------
@@ -570,8 +586,7 @@ Reset(*) {
     SetTimer(CheckWidgetCommand, 0)
     SetTimer(FlushSave, 0)
     SetTimer(CheckHealthReminders, 0)
-    if (needSaveState)
-        FlushSave()
+    FlushSave()
     if (apiPid && apiPid != 0) {
         try ProcessClose(apiPid)
         apiPid := 0
@@ -591,8 +606,7 @@ ExitAppLabel(*) {
     SetTimer(CheckWidgetCommand, 0)
     SetTimer(FlushSave, 0)
     SetTimer(CheckHealthReminders, 0)
-    if (needSaveState)
-        FlushSave()
+    FlushSave()
     if (apiPid && apiPid != 0) {
         try ProcessClose(apiPid)
         apiPid := 0
