@@ -36,6 +36,15 @@ html, body {
   flex-shrink: 0;
 }
 
+.health-dots.has-active {
+  animation: dot-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 .dot {
   width: 10px;
   height: 10px;
@@ -45,14 +54,9 @@ html, body {
   transition: background-color 0.2s, border-color 0.2s;
 }
 
-@keyframes dot-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.dot-sitting.active { background: #ef4444; border-color: #ef4444; animation: dot-blink 1.2s ease-in-out infinite; }
-.dot-tenosynovitis.active { background: #eab308; border-color: #eab308; animation: dot-blink 1.2s ease-in-out infinite; }
-.dot-water.active { background: #3b82f6; border-color: #3b82f6; animation: dot-blink 1.2s ease-in-out infinite; }
+.dot-sitting.active { background: #ef4444; border-color: #ef4444; }
+.dot-tenosynovitis.active { background: #eab308; border-color: #eab308; }
+.dot-water.active { background: #3b82f6; border-color: #3b82f6; }
 
 .title {
   font-size: 10px;

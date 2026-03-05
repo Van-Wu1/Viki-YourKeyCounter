@@ -10,6 +10,9 @@ data/*.ini
 
 # ----- Node.js / API -----
 api/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # ----- Node.js / Electron (widget) -----
 widget/node_modules/
@@ -18,6 +21,9 @@ widget/out/
 widget/*.exe
 widget/*.dmg
 widget/*.AppImage
+widget/*.msi
+widget/*.zip
+.electron/
 
 # ----- AHK 脚本 -----
 *.ahk~
@@ -25,6 +31,7 @@ widget/*.AppImage
 
 # ----- 日志与临时文件 -----
 keycounter_widget_cmd.txt
+keycounter_widget_pid.txt
 *.log
 *.tmp
 *.temp
@@ -45,6 +52,7 @@ ehthumbs.db
 .cursor/
 *.sublime-project
 *.sublime-workspace
+agent-transcripts/
 
 # ----- 环境与密钥（若后续添加） -----
 .env

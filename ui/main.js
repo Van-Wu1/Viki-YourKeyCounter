@@ -145,8 +145,11 @@
     document.getElementById('activityTotal').textContent = totalCount.toLocaleString();
 
     const today = new Date();
+    const year = today.getFullYear();
     const WEEKS = 53;
-    const startDate = new Date(today.getFullYear(), 0, 1);
+    const jan1 = new Date(year, 0, 1);
+    const firstSunday = new Date(jan1);
+    firstSunday.setDate(1 - jan1.getDay());
 
     const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
     const monthAbbr = ['1','2','3','4','5','6','7','8','9','10','11','12'];
@@ -156,7 +159,7 @@
     monthRow.innerHTML = '';
     let lastMonth = -1;
     for (let w = 0; w < WEEKS; w++) {
-      const d = new Date(startDate);
+      const d = new Date(firstSunday);
       d.setDate(d.getDate() + w * 7);
       const m = d.getMonth();
       const span = document.createElement('span');
@@ -177,7 +180,7 @@
     const frag = document.createDocumentFragment();
     for (let dow = 0; dow < 7; dow++) {
       for (let w = 0; w < WEEKS; w++) {
-        const d = new Date(startDate);
+        const d = new Date(firstSunday);
         d.setDate(d.getDate() + w * 7 + dow);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');

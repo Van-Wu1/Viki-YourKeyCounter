@@ -1,367 +1,328 @@
-#NoEnv
-#Persistent
-#SingleInstance, Force
-SetWorkingDir, %A_ScriptDir%
+#Requires AutoHotkey v2
+#SingleInstance Force
+Persistent
+SetWorkingDir A_ScriptDir
 
-; 版本标识（用于确认是否加载了最新脚本）
-scriptVersion = v0.3-perkey
-Menu, Tray, Tip, KeyCounter %scriptVersion%
+; 版本标识
+scriptVersion := "v0.3-perkey"
+try A_TrayMenu.Tip := "KeyCounter " scriptVersion
 
 ;-------------------------
 ; 配置
 ;-------------------------
-; 统计日边界：凌晨4点
-StatsBoundaryHour = 4
+global StatsBoundaryHour := 4
 
 ;-------------------------
 ; 全局变量
 ;-------------------------
-totalKeyboard = 0
-totalMouseLeft = 0
-totalMouseRight = 0
-totalWheelUp = 0
-totalWheelDown = 0
+global totalKeyboard := 0
+global totalMouseLeft := 0
+global totalMouseRight := 0
+global totalWheelUp := 0
+global totalWheelDown := 0
 
-todayKeyboard = 0
-todayMouseLeft = 0
-todayMouseRight = 0
-todayWheelUp = 0
-todayWheelDown = 0
+global todayKeyboard := 0
+global todayMouseLeft := 0
+global todayMouseRight := 0
+global todayWheelUp := 0
+global todayWheelDown := 0
 
-isGuiShown = 0
+global isGuiShown := 0
 
-currentDayId =
-dashboardPid =
-apiPid =
-needSaveState = 0
-lastSittingReminderTime = 0
-lastTenosynovitisReminderTime = 0
-lastWaterReminderTime = 0
-continuousSessionStart = 0
+global currentDayId := ""
+global dashboardPid := 0
+global apiPid := 0
+global needSaveState := 0
+global lastSittingReminderTime := 0
+global lastTenosynovitisReminderTime := 0
+global lastWaterReminderTime := 0
+global continuousSessionStart := 0
+
+global lastMouseEvent := ""
+global keyName := ""
+global newDayId := ""
+global dashboardHash := ""
 
 ;-------------------------
 ; 初始化
 ;-------------------------
-Gosub, EnsureDataDir
-Gosub, CalcDayIdStartup
-Gosub, LoadState
-Gosub, InitGui
-Gosub, SaveState
-Gosub, SaveDaySnapshot
+EnsureDataDir()
+CalcDayIdStartup()
+LoadState()
+ResetHealthStatusOnStartup()
+InitGui()
+SaveState()
+SaveDaySnapshot()
 
 ; 托盘菜单
-Menu, Tray, NoStandard
-Menu, Tray, Add, Open Dashboard, OpenDashboard
-SetTimer, CheckWidgetCommand, 500
-SetTimer, FlushSave, 2000
-SetTimer, CheckHealthReminders, 60000
-Menu, Tray, Default, Open Dashboard
-Menu, Tray, Add, Preferences, Preferences
-Menu, Tray, Add, Show Window, ShowGui
-Menu, Tray, Add, Hide Window, HideGui
-Menu, Tray, Add
-Menu, Tray, Add, Update check, UpdateCheck
-Menu, Tray, Add, Open source, OpenSource
-Menu, Tray, Add
-Menu, Tray, Add, Reset, Reset
-Menu, Tray, Add, Exit, ExitAppLabel
+A_TrayMenu.Delete()
+A_TrayMenu.Add("Open Dashboard", OpenDashboard)
+SetTimer(CheckWidgetCommand, 500)
+SetTimer(FlushSave, 2000)
+SetTimer(CheckHealthReminders, 60000)
+A_TrayMenu.Default := "Open Dashboard"
+A_TrayMenu.Add("Preferences", Preferences)
+A_TrayMenu.Add("Show Window", ShowGui)
+A_TrayMenu.Add("Hide Window", HideGui)
+A_TrayMenu.Add()
+A_TrayMenu.Add("Update check", UpdateCheck)
+A_TrayMenu.Add("Open source", OpenSource)
+A_TrayMenu.Add()
+A_TrayMenu.Add("Reset", Reset)
+A_TrayMenu.Add("Exit", ExitAppLabel)
 
 ;-------------------------
-; 悬浮框右键菜单命令（由 widget 写入文件，此处轮询执行）
+; 悬浮框右键菜单命令
 ;-------------------------
-CheckWidgetCommand:
-    widgetCmdFile = %A_ScriptDir%\keycounter_widget_cmd.txt
-    IfNotExist, %widgetCmdFile%
+CheckWidgetCommand() {
+    global
+    widgetCmdFile := A_ScriptDir "\keycounter_widget_cmd.txt"
+    if !FileExist(widgetCmdFile)
         return
-    FileRead, widgetCmd, %widgetCmdFile%
-    FileDelete, %widgetCmdFile%
-    if (widgetCmd = "OpenDashboard")
-        Gosub, OpenDashboard
-    else if (widgetCmd = "Preferences")
-        Gosub, Preferences
-    else if (widgetCmd = "UpdateCheck")
-        Gosub, UpdateCheck
-    else if (widgetCmd = "OpenSource")
-        Gosub, OpenSource
-    else if (widgetCmd = "Reset")
-        Gosub, Reset
-return
+    widgetCmd := FileRead(widgetCmdFile)
+    FileDelete(widgetCmdFile)
+    switch widgetCmd {
+        case "OpenDashboard": OpenDashboard()
+        case "Preferences": Preferences()
+        case "UpdateCheck": UpdateCheck()
+        case "OpenSource": OpenSource()
+        case "Reset": Reset()
+    }
+}
 
 ;-------------------------
 ; 鼠标事件
 ;-------------------------
-~LButton::
-    lastMouseEvent = MouseLeft
-    Gosub, HandleEvent
-return
-
-~RButton::
-    lastMouseEvent = MouseRight
-    Gosub, HandleEvent
-return
-
-~WheelUp::
-    lastMouseEvent = WheelUp
-    Gosub, HandleEvent
-return
-
-~WheelDown::
-    lastMouseEvent = WheelDown
-    Gosub, HandleEvent
-return
+~LButton:: {
+    global lastMouseEvent := "MouseLeft"
+    HandleEvent()
+}
+~RButton:: {
+    global lastMouseEvent := "MouseRight"
+    HandleEvent()
+}
+~WheelUp:: {
+    global lastMouseEvent := "WheelUp"
+    HandleEvent()
+}
+~WheelDown:: {
+    global lastMouseEvent := "WheelDown"
+    HandleEvent()
+}
 
 ;-------------------------
-; 键盘事件（常见按键 + 标点）
+; 键盘事件
 ;-------------------------
-~*a:: Gosub, HandleKeyEvent
-~*b:: Gosub, HandleKeyEvent
-~*c:: Gosub, HandleKeyEvent
-~*d:: Gosub, HandleKeyEvent
-~*e:: Gosub, HandleKeyEvent
-~*f:: Gosub, HandleKeyEvent
-~*g:: Gosub, HandleKeyEvent
-~*h:: Gosub, HandleKeyEvent
-~*i:: Gosub, HandleKeyEvent
-~*j:: Gosub, HandleKeyEvent
-~*k:: Gosub, HandleKeyEvent
-~*l:: Gosub, HandleKeyEvent
-~*m:: Gosub, HandleKeyEvent
-~*n:: Gosub, HandleKeyEvent
-~*o:: Gosub, HandleKeyEvent
-~*p:: Gosub, HandleKeyEvent
-~*q:: Gosub, HandleKeyEvent
-~*r:: Gosub, HandleKeyEvent
-~*s:: Gosub, HandleKeyEvent
-~*t:: Gosub, HandleKeyEvent
-~*u:: Gosub, HandleKeyEvent
-~*v:: Gosub, HandleKeyEvent
-~*w:: Gosub, HandleKeyEvent
-~*x:: Gosub, HandleKeyEvent
-~*y:: Gosub, HandleKeyEvent
-~*z:: Gosub, HandleKeyEvent
-~*0:: Gosub, HandleKeyEvent
-~*1:: Gosub, HandleKeyEvent
-~*2:: Gosub, HandleKeyEvent
-~*3:: Gosub, HandleKeyEvent
-~*4:: Gosub, HandleKeyEvent
-~*5:: Gosub, HandleKeyEvent
-~*6:: Gosub, HandleKeyEvent
-~*7:: Gosub, HandleKeyEvent
-~*8:: Gosub, HandleKeyEvent
-~*9:: Gosub, HandleKeyEvent
-~*Space:: Gosub, HandleKeyEvent
-~*Enter:: Gosub, HandleKeyEvent
-~*Backspace:: Gosub, HandleKeyEvent
-~*Tab:: Gosub, HandleKeyEvent
-~*Delete:: Gosub, HandleKeyEvent
-~*Insert:: Gosub, HandleKeyEvent
-~*Home:: Gosub, HandleKeyEvent
-~*End:: Gosub, HandleKeyEvent
-~*PgUp:: Gosub, HandleKeyEvent
-~*PgDn:: Gosub, HandleKeyEvent
-~*Up:: Gosub, HandleKeyEvent
-~*Down:: Gosub, HandleKeyEvent
-~*Left:: Gosub, HandleKeyEvent
-~*Right:: Gosub, HandleKeyEvent
-~*,:: Gosub, HandleKeyEvent
-~*.::
-    Gosub, HandleKeyEvent
-return
+~*a:: HandleKeyEvent()
+~*b:: HandleKeyEvent()
+~*c:: HandleKeyEvent()
+~*d:: HandleKeyEvent()
+~*e:: HandleKeyEvent()
+~*f:: HandleKeyEvent()
+~*g:: HandleKeyEvent()
+~*h:: HandleKeyEvent()
+~*i:: HandleKeyEvent()
+~*j:: HandleKeyEvent()
+~*k:: HandleKeyEvent()
+~*l:: HandleKeyEvent()
+~*m:: HandleKeyEvent()
+~*n:: HandleKeyEvent()
+~*o:: HandleKeyEvent()
+~*p:: HandleKeyEvent()
+~*q:: HandleKeyEvent()
+~*r:: HandleKeyEvent()
+~*s:: HandleKeyEvent()
+~*t:: HandleKeyEvent()
+~*u:: HandleKeyEvent()
+~*v:: HandleKeyEvent()
+~*w:: HandleKeyEvent()
+~*x:: HandleKeyEvent()
+~*y:: HandleKeyEvent()
+~*z:: HandleKeyEvent()
+~*0:: HandleKeyEvent()
+~*1:: HandleKeyEvent()
+~*2:: HandleKeyEvent()
+~*3:: HandleKeyEvent()
+~*4:: HandleKeyEvent()
+~*5:: HandleKeyEvent()
+~*6:: HandleKeyEvent()
+~*7:: HandleKeyEvent()
+~*8:: HandleKeyEvent()
+~*9:: HandleKeyEvent()
+~*Space:: HandleKeyEvent()
+~*Enter:: HandleKeyEvent()
+~*Backspace:: HandleKeyEvent()
+~*Tab:: HandleKeyEvent()
+~*Delete:: HandleKeyEvent()
+~*Insert:: HandleKeyEvent()
+~*Home:: HandleKeyEvent()
+~*End:: HandleKeyEvent()
+~*PgUp:: HandleKeyEvent()
+~*PgDn:: HandleKeyEvent()
+~*Up:: HandleKeyEvent()
+~*Down:: HandleKeyEvent()
+~*Left:: HandleKeyEvent()
+~*Right:: HandleKeyEvent()
+~*,:: HandleKeyEvent()
+~*.:: HandleKeyEvent()
 
-; 修饰键与功能键
-~*LShift:: Gosub, HandleKeyEvent
-~*RShift:: Gosub, HandleKeyEvent
-~*LCtrl:: Gosub, HandleKeyEvent
-~*RCtrl:: Gosub, HandleKeyEvent
-~*LAlt:: Gosub, HandleKeyEvent
-~*RAlt:: Gosub, HandleKeyEvent
-~*CapsLock:: Gosub, HandleKeyEvent
-~*Esc:: Gosub, HandleKeyEvent
-~*F1:: Gosub, HandleKeyEvent
-~*F2:: Gosub, HandleKeyEvent
-~*F3:: Gosub, HandleKeyEvent
-~*F4:: Gosub, HandleKeyEvent
-~*F5:: Gosub, HandleKeyEvent
-~*F6:: Gosub, HandleKeyEvent
-~*F7:: Gosub, HandleKeyEvent
-~*F8:: Gosub, HandleKeyEvent
-~*F9:: Gosub, HandleKeyEvent
-~*F10:: Gosub, HandleKeyEvent
-~*F11:: Gosub, HandleKeyEvent
-~*F12:: Gosub, HandleKeyEvent
+~*LShift:: HandleKeyEvent()
+~*RShift:: HandleKeyEvent()
+~*LCtrl:: HandleKeyEvent()
+~*RCtrl:: HandleKeyEvent()
+~*LAlt:: HandleKeyEvent()
+~*RAlt:: HandleKeyEvent()
+~*CapsLock:: HandleKeyEvent()
+~*Esc:: HandleKeyEvent()
+~*F1:: HandleKeyEvent()
+~*F2:: HandleKeyEvent()
+~*F3:: HandleKeyEvent()
+~*F4:: HandleKeyEvent()
+~*F5:: HandleKeyEvent()
+~*F6:: HandleKeyEvent()
+~*F7:: HandleKeyEvent()
+~*F8:: HandleKeyEvent()
+~*F9:: HandleKeyEvent()
+~*F10:: HandleKeyEvent()
+~*F11:: HandleKeyEvent()
+~*F12:: HandleKeyEvent()
 
 ;-------------------------
 ; 事件统一处理
 ;-------------------------
-HandleKeyEvent:
-    lastMouseEvent =
-    Gosub, NormalizeKeyName
-    Gosub, HandleEvent
-return
+HandleKeyEvent() {
+    global lastMouseEvent := "", keyName
+    NormalizeKeyName()
+    HandleEvent()
+}
 
-NormalizeKeyName:
-    keyName = %A_ThisHotkey%
-    StringReplace, keyName, keyName, ~,, All
-    StringReplace, keyName, keyName, *,, All
-    StringReplace, keyName, keyName, $,, All
-
-    ; 修饰键合并（左右统一）
-    if (keyName = "LShift" or keyName = "RShift")
-        keyName = Shift
-    else if (keyName = "LCtrl" or keyName = "RCtrl")
-        keyName = Ctrl
-    else if (keyName = "LAlt" or keyName = "RAlt")
-        keyName = Alt
-
-    StringLen, keyLen, keyName
-    if (keyLen = 1) {
+NormalizeKeyName() {
+    global keyName
+    keyName := StrReplace(StrReplace(StrReplace(A_ThisHotkey, "~", ""), "*", ""), "$", "")
+    if (keyName = "LShift" || keyName = "RShift")
+        keyName := "Shift"
+    else if (keyName = "LCtrl" || keyName = "RCtrl")
+        keyName := "Ctrl"
+    else if (keyName = "LAlt" || keyName = "RAlt")
+        keyName := "Alt"
+    if (StrLen(keyName) = 1) {
         if (keyName = ",")
-        {
-            keyName = Comma
-        }
+            keyName := "Comma"
         else if (keyName = ".")
-        {
-            keyName = Period
-        }
+            keyName := "Period"
         else
-        {
-            StringUpper, keyName, keyName
-        }
+            keyName := StrUpper(keyName)
     }
-return
+}
 
-HandleEvent:
-    Gosub, CalcDayIdRuntime
+HandleEvent() {
+    global
+    CalcDayIdRuntime()
     if (newDayId != currentDayId) {
-        ; 保存旧日
-        Gosub, SaveDaySnapshot
-        currentDayId = %newDayId%
-        todayKeyboard = 0
-        todayMouseLeft = 0
-        todayMouseRight = 0
-        todayWheelUp = 0
-        todayWheelDown = 0
+        SaveDaySnapshot()
+        currentDayId := newDayId
+        todayKeyboard := 0
+        todayMouseLeft := 0
+        todayMouseRight := 0
+        todayWheelUp := 0
+        todayWheelDown := 0
     }
-
-    ; 累加
-    if lastMouseEvent =
-    {
-        ; 键盘事件
-        EnvAdd, totalKeyboard, 1
-        EnvAdd, todayKeyboard, 1
-
-        ; 每键统计（直接写入当日文件）
-        if keyName <>  ; 确保有规范化后的键名
-        {
-            filePath = data\%currentDayId%.ini
-            IniRead, cur, %filePath%, PerKey, %keyName%, 0
-            if cur =
-                cur = 0
-            EnvAdd, cur, 1
-            IniWrite, %cur%, %filePath%, PerKey, %keyName%
-            IniWrite, %A_Now%, %filePath%, Meta, UpdatedAt
+    if (lastMouseEvent = "") {
+        totalKeyboard += 1
+        todayKeyboard += 1
+        if (keyName != "") {
+            filePath := "data\" currentDayId ".ini"
+            cur := Integer(IniRead(filePath, "PerKey", keyName, "0"))
+            cur += 1
+            IniWrite(String(cur), filePath, "PerKey", keyName)
+            IniWrite(FormatTime(, "yyyyMMddHHmmss"), filePath, "Meta", "UpdatedAt")
         }
-    }
-    else
-    {
-        if lastMouseEvent = MouseLeft
-        {
-            EnvAdd, totalMouseLeft, 1
-            EnvAdd, todayMouseLeft, 1
-        }
-        else if lastMouseEvent = MouseRight
-        {
-            EnvAdd, totalMouseRight, 1
-            EnvAdd, todayMouseRight, 1
-        }
-        else if lastMouseEvent = WheelUp
-        {
-            EnvAdd, totalWheelUp, 1
-            EnvAdd, todayWheelUp, 1
-        }
-        else if lastMouseEvent = WheelDown
-        {
-            EnvAdd, totalWheelDown, 1
-            EnvAdd, todayWheelDown, 1
+    } else {
+        switch lastMouseEvent {
+            case "MouseLeft":
+                totalMouseLeft += 1
+                todayMouseLeft += 1
+            case "MouseRight":
+                totalMouseRight += 1
+                todayMouseRight += 1
+            case "WheelUp":
+                totalWheelUp += 1
+                todayWheelUp += 1
+            case "WheelDown":
+                totalWheelDown += 1
+                todayWheelDown += 1
         }
     }
+    needSaveState := 1
+}
 
-    Gosub, UpdateGui
-    needSaveState = 1
-return
-
-FlushSave:
+FlushSave() {
+    global
     if (needSaveState = 0)
         return
-    needSaveState = 0
-    Gosub, SaveState
-    Gosub, SaveDaySnapshot
-return
+    needSaveState := 0
+    SaveState()
+    SaveDaySnapshot()
+}
 
 ;-------------------------
-; 健康提醒（三模块：久坐、腱鞘炎、喝水）
+; 健康提醒
 ;-------------------------
-CheckHealthReminders:
-    Gosub, CheckSittingReminder
-    Gosub, CheckTenosynovitisReminder
-    Gosub, CheckWaterReminder
-    Gosub, WriteHealthStatus
-return
+CheckHealthReminders() {
+    CheckSittingReminder()
+    CheckTenosynovitisReminder()
+    CheckWaterReminder()
+    WriteHealthStatus()
+}
 
-; 久坐提醒：键鼠一直操作 N 分钟，中途无操作少于5分钟则属"一直操作"
-CheckSittingReminder:
-    IfNotExist, gui.ini
+CheckSittingReminder() {
+    global
+    if !FileExist("gui.ini")
         return
-    IniRead, enabled, gui.ini, Preferences, SittingEnabled, 1
-    if (enabled != 1)
+    enabled := IniRead("gui.ini", "Preferences", "SittingEnabled", "1")
+    if (enabled != "1")
         return
-    IniRead, sittingMins, gui.ini, Preferences, SittingMinutes, 120
-    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
-    sittingMins := sittingMins + 0
-    cooldownMin := cooldownMin + 0
+    sittingMins := Integer(IniRead("gui.ini", "Preferences", "SittingMinutes", "120"))
+    cooldownMin := Integer(IniRead("gui.ini", "Preferences", "ReminderCooldown", "1"))
     now := A_Now
-    idleMs := A_TimeIdlePhysical
-    idleMins := idleMs / 60000
+    idleMins := A_TimeIdlePhysical / 60000
     if (idleMins >= 5) {
-        ; 超过5分钟无操作，视为休息，重置连续操作起点
         continuousSessionStart := now
-        IniWrite, 0, health_status.ini, Status, Sitting
+        IniWrite("0", "health_status.ini", "Status", "Sitting")
         return
     }
     if (continuousSessionStart = 0)
         continuousSessionStart := now
-    diffMins := now
-    EnvSub, diffMins, %continuousSessionStart%, Minutes
+    diffMins := -DateDiff(continuousSessionStart, now, "Minutes")
     if (diffMins < sittingMins) {
-        IniWrite, 0, health_status.ini, Status, Sitting
+        IniWrite("0", "health_status.ini", "Status", "Sitting")
         return
     }
-    diffCooldown := now
-    EnvSub, diffCooldown, %lastSittingReminderTime%, Minutes
-    if (lastSittingReminderTime > 0 && diffCooldown < cooldownMin)
-        return
+    if (lastSittingReminderTime > 0) {
+        diffCooldown := -DateDiff(lastSittingReminderTime, now, "Minutes")
+        if (diffCooldown < cooldownMin)
+            return
+    }
     lastSittingReminderTime := now
     continuousSessionStart := now
-    IniWrite, 1, health_status.ini, Status, Sitting
-return
+    IniWrite("1", "health_status.ini", "Status", "Sitting")
+}
 
-; 腱鞘炎提醒：当日键盘/鼠标超过阈值
-CheckTenosynovitisReminder:
-    IfNotExist, gui.ini
+CheckTenosynovitisReminder() {
+    global
+    if !FileExist("gui.ini")
         return
-    IniRead, enabled, gui.ini, Preferences, TenosynovitisEnabled, %A_Space%
+    now := A_Now
+    enabled := IniRead("gui.ini", "Preferences", "TenosynovitisEnabled", " ")
     if (enabled = "")
-        IniRead, enabled, gui.ini, Preferences, ReminderEnabled, 1
-    if (enabled != 1)
+        enabled := IniRead("gui.ini", "Preferences", "ReminderEnabled", "1")
+    if (enabled != "1")
         return
-    IniRead, kbThreshold, gui.ini, Preferences, KeyboardThreshold, 50000
-    IniRead, mouseThreshold, gui.ini, Preferences, MouseThreshold, 10000
-    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
-    kbThreshold := kbThreshold + 0
-    mouseThreshold := mouseThreshold + 0
-    cooldownMin := cooldownMin + 0
+    kbThreshold := Integer(IniRead("gui.ini", "Preferences", "KeyboardThreshold", "50000"))
+    mouseThreshold := Integer(IniRead("gui.ini", "Preferences", "MouseThreshold", "10000"))
+    cooldownMin := Integer(IniRead("gui.ini", "Preferences", "ReminderCooldown", "1"))
     if (kbThreshold <= 0 && mouseThreshold <= 0) {
-        IniWrite, 0, health_status.ini, Status, Tenosynovitis
+        IniWrite("0", "health_status.ini", "Status", "Tenosynovitis")
         return
     }
     todayMouse := todayMouseLeft + todayMouseRight + todayWheelUp + todayWheelDown
@@ -371,296 +332,288 @@ CheckTenosynovitisReminder:
     if (mouseThreshold > 0 && todayMouse >= mouseThreshold)
         exceeded := 1
     if (exceeded = 0) {
-        IniWrite, 0, health_status.ini, Status, Tenosynovitis
+        IniWrite("0", "health_status.ini", "Status", "Tenosynovitis")
         return
     }
-    now := A_Now
-    diffMins := now
-    EnvSub, diffMins, %lastTenosynovitisReminderTime%, Minutes
-    if (lastTenosynovitisReminderTime > 0 && diffMins < cooldownMin)
-        return
+    if (lastTenosynovitisReminderTime > 0) {
+        diffMins := -DateDiff(lastTenosynovitisReminderTime, now, "Minutes")
+        if (diffMins < cooldownMin)
+            return
+    }
     lastTenosynovitisReminderTime := now
-    IniWrite, 1, health_status.ini, Status, Tenosynovitis
-    TrayTip, KeyCounter 腱鞘炎提醒, 今日使用量已达阈值，建议休息片刻，预防腱鞘炎。, 10, 1
-return
+    IniWrite("1", "health_status.ini", "Status", "Tenosynovitis")
+}
 
-; 喝水提醒：每隔 N 分钟定时提醒
-CheckWaterReminder:
-    IfNotExist, gui.ini
+CheckWaterReminder() {
+    global
+    if !FileExist("gui.ini")
         return
-    IniRead, enabled, gui.ini, Preferences, WaterEnabled, 1
-    if (enabled != 1)
+    enabled := IniRead("gui.ini", "Preferences", "WaterEnabled", "1")
+    if (enabled != "1")
         return
-    IniRead, waterMins, gui.ini, Preferences, WaterMinutes, 45
-    IniRead, cooldownMin, gui.ini, Preferences, ReminderCooldown, 1
-    waterMins := waterMins + 0
-    cooldownMin := cooldownMin + 0
+    waterMins := Integer(IniRead("gui.ini", "Preferences", "WaterMinutes", "45"))
+    cooldownMin := Integer(IniRead("gui.ini", "Preferences", "ReminderCooldown", "1"))
     now := A_Now
     if (lastWaterReminderTime = 0) {
         lastWaterReminderTime := now
-        IniWrite, 0, health_status.ini, Status, Water
+        IniWrite("0", "health_status.ini", "Status", "Water")
         return
     }
-    diffMins := now
-    EnvSub, diffMins, %lastWaterReminderTime%, Minutes
+    diffMins := -DateDiff(lastWaterReminderTime, now, "Minutes")
     if (diffMins < waterMins) {
-        IniWrite, 0, health_status.ini, Status, Water
+        IniWrite("0", "health_status.ini", "Status", "Water")
         return
     }
-    diffCooldown := now
-    EnvSub, diffCooldown, %lastWaterReminderTime%, Minutes
+    diffCooldown := -DateDiff(lastWaterReminderTime, now, "Minutes")
     if (diffCooldown < cooldownMin)
         return
     lastWaterReminderTime := now
-    IniWrite, 1, health_status.ini, Status, Water
-return
+    IniWrite("1", "health_status.ini", "Status", "Water")
+}
 
-; 统一写入 health_status.ini（冷却结束后写回 0 由各模块负责）
-WriteHealthStatus:
-    IfNotExist, health_status.ini
-    {
-        IniWrite, 0, health_status.ini, Status, Sitting
-        IniWrite, 0, health_status.ini, Status, Tenosynovitis
-        IniWrite, 0, health_status.ini, Status, Water
+; 启动时重置健康状态，避免重启后沿用上次的提醒状态
+ResetHealthStatusOnStartup() {
+    IniWrite("0", "health_status.ini", "Status", "Sitting")
+    IniWrite("0", "health_status.ini", "Status", "Tenosynovitis")
+    IniWrite("0", "health_status.ini", "Status", "Water")
+}
+
+WriteHealthStatus() {
+    if !FileExist("health_status.ini") {
+        IniWrite("0", "health_status.ini", "Status", "Sitting")
+        IniWrite("0", "health_status.ini", "Status", "Tenosynovitis")
+        IniWrite("0", "health_status.ini", "Status", "Water")
     }
-return
+}
 
 ;-------------------------
-; GUI：悬浮框 - Electron Widget（读写 gui.ini 与 count.ini）
+; GUI：悬浮框
 ;-------------------------
-InitGui:
-    IniWrite, 1, gui.ini, Floating, Visible
-    widgetDir = %A_ScriptDir%\widget
-    electronExe = %widgetDir%\node_modules\electron\dist\electron.exe
-    if (FileExist(electronExe)) {
-        batchPath = %A_Temp%\keycounter_launch.bat
-        FileDelete, %batchPath%
-        FileAppend, @echo off`ncd /d "%widgetDir%"`nstart "" "%electronExe%" "."`n, %batchPath%
-        Run, "%batchPath%", %A_Temp%, Hide
+InitGui() {
+    global isGuiShown := 1
+    IniWrite("1", "gui.ini", "Floating", "Visible")
+    widgetDir := A_ScriptDir "\widget"
+    electronExe := widgetDir "\node_modules\electron\dist\electron.exe"
+    if FileExist(electronExe) {
+        try Run('"' electronExe '" .', widgetDir)
     } else {
-        Run, npx electron ., %widgetDir%, Hide
+        try Run('npx electron .', widgetDir)
     }
-    isGuiShown = 1
-return
+}
 
-UpdateGui:
-    ; 数值由 widget 从 count.ini 读取，此处无需更新
-return
+ShowGui(*) {
+    global isGuiShown := 1
+    IniWrite("1", "gui.ini", "Floating", "Visible")
+}
 
-ShowGui:
-    IniWrite, 1, gui.ini, Floating, Visible
-    isGuiShown = 1
-return
+HideGui(*) {
+    global isGuiShown := 0
+    IniWrite("0", "gui.ini", "Floating", "Visible")
+}
 
-HideGui:
-    IniWrite, 0, gui.ini, Floating, Visible
-    isGuiShown = 0
-return
-
-; Ctrl+Alt+H 显隐（读写 gui.ini，由 widget 轮询）
-^!h::
+^!h:: {
+    global isGuiShown
     if (isGuiShown) {
-        IniWrite, 0, gui.ini, Floating, Visible
-        isGuiShown = 0
+        IniWrite("0", "gui.ini", "Floating", "Visible")
+        isGuiShown := 0
     } else {
-        IniWrite, 1, gui.ini, Floating, Visible
-        isGuiShown = 1
+        IniWrite("1", "gui.ini", "Floating", "Visible")
+        isGuiShown := 1
     }
-return
+}
 
 ;-------------------------
-; GUI：看板 (Gui 2) - WebBrowser 嵌入 ui/index.html
+; GUI：看板
 ;-------------------------
-OpenDashboard:
-    dashboardHash =
-    Gosub, OpenDashboardCore
-return
+OpenDashboard(*) {
+    global dashboardHash := ""
+    OpenDashboardCore()
+}
 
-OpenDashboardToPrefs:
-    dashboardHash = #preferences
-    Gosub, OpenDashboardCore
-return
+OpenDashboardToPrefs() {
+    global dashboardHash := "#preferences"
+    OpenDashboardCore()
+}
 
-OpenDashboardCore:
-    SetWorkingDir, %A_ScriptDir%
-    ; 先终止旧 API，确保加载最新代码
-    if (apiPid)
-    {
-        Process, Close, %apiPid%
-        apiPid =
-        Sleep, 500
+OpenDashboardCore() {
+    global apiPid, dashboardPid, dashboardHash
+    SetWorkingDir(A_ScriptDir)
+    if (apiPid && apiPid != 0) {
+        try ProcessClose(apiPid)
+        apiPid := 0
+        Sleep(500)
     }
-    ; 不设置 KEYCOUNTER_ROOT，避免中文路径编码问题；API 使用 __dirname 解析路径
-    apiScript = %A_ScriptDir%\api\index.js
-    Run, node "%apiScript%", %A_ScriptDir%, Hide, apiPid
-    Sleep, 2000
-
-    edgePath = %A_ProgramFiles%\Microsoft\Edge\Application\msedge.exe
+    apiScript := A_ScriptDir "\api\index.js"
+    try Run('node "' apiScript '"', A_ScriptDir, "Hide", &apiPid)
+    Sleep(2000)
+    edgePath := A_ProgramFiles "\Microsoft\Edge\Application\msedge.exe"
     edgeExists := FileExist(edgePath)
-    if (!edgeExists)
-    {
-        edgePathX86 = C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
-        if (FileExist(edgePathX86))
-        {
-            edgePath = %edgePathX86%
-            edgeExists = 1
+    if (!edgeExists) {
+        edgePathX86 := "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        if FileExist(edgePathX86) {
+            edgePath := edgePathX86
+            edgeExists := true
         }
     }
-    dashboardUrl = http://localhost:3000/%dashboardHash%
-    if (edgeExists)
-        Run, "%edgePath%" --app="%dashboardUrl%" --window-size=900`,600, , , dashboardPid
-    else
-        Run, "%dashboardUrl%", , , dashboardPid
-return
+    dashboardUrl := "http://localhost:3000/" (dashboardHash ?? "")
+    if (edgeExists) {
+        try Run('"' edgePath '" --app="' dashboardUrl '" --window-size=900,600', , , &dashboardPid)
+    } else {
+        Run(dashboardUrl)
+    }
+}
 
 ;-------------------------
 ; 存储
 ;-------------------------
-EnsureDataDir:
-    FileCreateDir, data
-return
+EnsureDataDir() {
+    DirCreate("data")
+}
 
-LoadState:
-    IfNotExist, count.ini
+LoadState() {
+    global
+    if !FileExist("count.ini")
         return
-
-    IniRead, savedDayId, count.ini, Meta, DayId, %currentDayId%
-    IniRead, totalKeyboard,   count.ini, Total, Keyboard, 0
-    IniRead, totalMouseLeft,  count.ini, Total, MouseLeft, 0
-    IniRead, totalMouseRight, count.ini, Total, MouseRight, 0
-    IniRead, totalWheelUp,    count.ini, Total, WheelUp, 0
-    IniRead, totalWheelDown,  count.ini, Total, WheelDown, 0
-
+    savedDayId := IniRead("count.ini", "Meta", "DayId", currentDayId)
+    totalKeyboard := Integer(IniRead("count.ini", "Total", "Keyboard", "0"))
+    totalMouseLeft := Integer(IniRead("count.ini", "Total", "MouseLeft", "0"))
+    totalMouseRight := Integer(IniRead("count.ini", "Total", "MouseRight", "0"))
+    totalWheelUp := Integer(IniRead("count.ini", "Total", "WheelUp", "0"))
+    totalWheelDown := Integer(IniRead("count.ini", "Total", "WheelDown", "0"))
     if (savedDayId = currentDayId) {
-        IniRead, todayKeyboard,   count.ini, Today, Keyboard, 0
-        IniRead, todayMouseLeft,  count.ini, Today, MouseLeft, 0
-        IniRead, todayMouseRight, count.ini, Today, MouseRight, 0
-        IniRead, todayWheelUp,    count.ini, Today, WheelUp, 0
-        IniRead, todayWheelDown,  count.ini, Today, WheelDown, 0
+        todayKeyboard := Integer(IniRead("count.ini", "Today", "Keyboard", "0"))
+        todayMouseLeft := Integer(IniRead("count.ini", "Today", "MouseLeft", "0"))
+        todayMouseRight := Integer(IniRead("count.ini", "Today", "MouseRight", "0"))
+        todayWheelUp := Integer(IniRead("count.ini", "Today", "WheelUp", "0"))
+        todayWheelDown := Integer(IniRead("count.ini", "Today", "WheelDown", "0"))
+    } else {
+        todayKeyboard := 0
+        todayMouseLeft := 0
+        todayMouseRight := 0
+        todayWheelUp := 0
+        todayWheelDown := 0
     }
-    else
-    {
-        todayKeyboard = 0
-        todayMouseLeft = 0
-        todayMouseRight = 0
-        todayWheelUp = 0
-        todayWheelDown = 0
-    }
-return
+}
 
-SaveState:
-    IniWrite, %currentDayId%, count.ini, Meta, DayId
+SaveState() {
+    global
+    IniWrite(currentDayId, "count.ini", "Meta", "DayId")
+    IniWrite(String(totalKeyboard), "count.ini", "Total", "Keyboard")
+    IniWrite(String(totalMouseLeft), "count.ini", "Total", "MouseLeft")
+    IniWrite(String(totalMouseRight), "count.ini", "Total", "MouseRight")
+    IniWrite(String(totalWheelUp), "count.ini", "Total", "WheelUp")
+    IniWrite(String(totalWheelDown), "count.ini", "Total", "WheelDown")
+    IniWrite(String(todayKeyboard), "count.ini", "Today", "Keyboard")
+    IniWrite(String(todayMouseLeft), "count.ini", "Today", "MouseLeft")
+    IniWrite(String(todayMouseRight), "count.ini", "Today", "MouseRight")
+    IniWrite(String(todayWheelUp), "count.ini", "Today", "WheelUp")
+    IniWrite(String(todayWheelDown), "count.ini", "Today", "WheelDown")
+}
 
-    IniWrite, %totalKeyboard%,   count.ini, Total, Keyboard
-    IniWrite, %totalMouseLeft%,  count.ini, Total, MouseLeft
-    IniWrite, %totalMouseRight%, count.ini, Total, MouseRight
-    IniWrite, %totalWheelUp%,    count.ini, Total, WheelUp
-    IniWrite, %totalWheelDown%,  count.ini, Total, WheelDown
-
-    IniWrite, %todayKeyboard%,   count.ini, Today, Keyboard
-    IniWrite, %todayMouseLeft%,  count.ini, Today, MouseLeft
-    IniWrite, %todayMouseRight%, count.ini, Today, MouseRight
-    IniWrite, %todayWheelUp%,    count.ini, Today, WheelUp
-    IniWrite, %todayWheelDown%,  count.ini, Today, WheelDown
-return
-
-SaveDaySnapshot:
-    if currentDayId =
+SaveDaySnapshot() {
+    global
+    if (currentDayId = "")
         return
-    filePath = data\%currentDayId%.ini
-
-    IniWrite, %currentDayId%, %filePath%, Meta, DayId
-    IniWrite, %A_Now%,        %filePath%, Meta, UpdatedAt
-
-    IniWrite, %todayKeyboard%,   %filePath%, Day, Keyboard
-    IniWrite, %todayMouseLeft%,  %filePath%, Day, MouseLeft
-    IniWrite, %todayMouseRight%, %filePath%, Day, MouseRight
-    IniWrite, %todayWheelUp%,    %filePath%, Day, WheelUp
-    IniWrite, %todayWheelDown%,  %filePath%, Day, WheelDown
-return
+    filePath := "data\" currentDayId ".ini"
+    IniWrite(currentDayId, filePath, "Meta", "DayId")
+    IniWrite(FormatTime(, "yyyyMMddHHmmss"), filePath, "Meta", "UpdatedAt")
+    IniWrite(String(todayKeyboard), filePath, "Day", "Keyboard")
+    IniWrite(String(todayMouseLeft), filePath, "Day", "MouseLeft")
+    IniWrite(String(todayMouseRight), filePath, "Day", "MouseRight")
+    IniWrite(String(todayWheelUp), filePath, "Day", "WheelUp")
+    IniWrite(String(todayWheelDown), filePath, "Day", "WheelDown")
+}
 
 ;-------------------------
-; 日界线计算（启动时）
+; 日界线计算
 ;-------------------------
-CalcDayIdStartup:
-    now = %A_Now%
-    FormatTime, hour, %now%, HH
+CalcDayIdStartup() {
+    global currentDayId
+    now := A_Now
+    hour := Integer(FormatTime(now, "HH"))
     if (hour >= StatsBoundaryHour) {
-        FormatTime, currentDayId, %now%, yyyyMMdd
+        currentDayId := FormatTime(now, "yyyyMMdd")
         return
     }
-    shifted = %now%
-    EnvAdd, shifted, -1, Days
-    FormatTime, currentDayId, %shifted%, yyyyMMdd
-return
+    shifted := DateAdd(now, -1, "days")
+    currentDayId := FormatTime(shifted, "yyyyMMdd")
+}
 
-;-------------------------
-; 日界线计算（事件时）
-;-------------------------
-CalcDayIdRuntime:
-    now = %A_Now%
-    FormatTime, hour, %now%, HH
+CalcDayIdRuntime() {
+    global newDayId
+    now := A_Now
+    hour := Integer(FormatTime(now, "HH"))
     if (hour >= StatsBoundaryHour) {
-        FormatTime, newDayId, %now%, yyyyMMdd
+        newDayId := FormatTime(now, "yyyyMMdd")
         return
     }
-    shifted = %now%
-    EnvAdd, shifted, -1, Days
-    FormatTime, newDayId, %shifted%, yyyyMMdd
-return
+    shifted := DateAdd(now, -1, "days")
+    newDayId := FormatTime(shifted, "yyyyMMdd")
+}
 
 ;-------------------------
 ; 托盘菜单动作
 ;-------------------------
-Preferences:
-    Gosub, OpenDashboardToPrefs
-    return
+Preferences(*) {
+    OpenDashboardToPrefs()
+}
 
-UpdateCheck:
-    ; 检查更新（待实现，后续维护在 GitHub）
-return
+UpdateCheck(*) {
+}
 
-OpenSource:
-    Run, https://github.com/Van-Wu1/Viki-YourKeyCounter
-return
+OpenSource(*) {
+    Run("https://github.com/Van-Wu1/Viki-YourKeyCounter")
+}
 
-Reset:
-    SetTimer, CheckWidgetCommand, Off
-    SetTimer, FlushSave, Off
-    SetTimer, CheckHealthReminders, Off
+Reset(*) {
+    global
+    SetTimer(CheckWidgetCommand, 0)
+    SetTimer(FlushSave, 0)
+    SetTimer(CheckHealthReminders, 0)
     if (needSaveState)
-        Gosub, FlushSave
-    if (apiPid)
-    {
-        Process, Close, %apiPid%
-        apiPid =
+        FlushSave()
+    if (apiPid && apiPid != 0) {
+        try ProcessClose(apiPid)
+        apiPid := 0
     }
-    if (dashboardPid)
-    {
-        Process, Close, %dashboardPid%
-        dashboardPid =
+    if (dashboardPid && dashboardPid != 0) {
+        try ProcessClose(dashboardPid)
+        dashboardPid := 0
     }
-    WinClose, KeyCounter Dashboard
-    WinClose, KeyCounter Widget
-    Reload
+    CloseWidgetProcess()
+    try WinClose("KeyCounter Dashboard")
+    try WinClose("KeyCounter Widget")
+    Reload()
+}
 
-ExitAppLabel:
-    SetTimer, CheckWidgetCommand, Off
-    SetTimer, FlushSave, Off
-    SetTimer, CheckHealthReminders, Off
+ExitAppLabel(*) {
+    global
+    SetTimer(CheckWidgetCommand, 0)
+    SetTimer(FlushSave, 0)
+    SetTimer(CheckHealthReminders, 0)
     if (needSaveState)
-        Gosub, FlushSave
-    if (apiPid)
-    {
-        Process, Close, %apiPid%
-        apiPid =
+        FlushSave()
+    if (apiPid && apiPid != 0) {
+        try ProcessClose(apiPid)
+        apiPid := 0
     }
-    if (dashboardPid)
-    {
-        Process, Close, %dashboardPid%
-        dashboardPid =
+    if (dashboardPid && dashboardPid != 0) {
+        try ProcessClose(dashboardPid)
+        dashboardPid := 0
     }
-    WinClose, KeyCounter Dashboard
-    WinClose, KeyCounter Widget
-    ExitApp
+    CloseWidgetProcess()
+    try WinClose("KeyCounter Dashboard")
+    try WinClose("KeyCounter Widget")
+    ExitApp()
+}
 
+CloseWidgetProcess() {
+    widgetPidFile := A_ScriptDir "\keycounter_widget_pid.txt"
+    if FileExist(widgetPidFile) {
+        widgetPid := Trim(FileRead(widgetPidFile))
+        pid := Integer(widgetPid)
+        if (pid > 0)
+            try ProcessClose(pid)
+        FileDelete(widgetPidFile)
+    }
+}

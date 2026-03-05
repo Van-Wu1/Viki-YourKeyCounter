@@ -4,6 +4,7 @@ const fs = require('fs');
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const WIDGET_CMD_FILE = path.join(APP_ROOT, 'keycounter_widget_cmd.txt');
+const WIDGET_PID_FILE = path.join(APP_ROOT, 'keycounter_widget_pid.txt');
 const DEFAULT_PREFS = { width: 160, height: 70, transparency: 94, borderRadius: 14 };
 const GUI_INI = path.join(APP_ROOT, 'gui.ini');
 const COUNT_INI = path.join(APP_ROOT, 'count.ini');
@@ -126,7 +127,7 @@ function createWindow() {
   });
 
   win.setMenuBarVisibility(false);
-  win.setTitle('Viki Widget');
+  win.setTitle('KeyCounter Widget');
   win.loadFile(path.join(__dirname, 'widget.html'));
 
   function writeWidgetCmd(cmd) {
@@ -222,7 +223,7 @@ function createWindow() {
         lastHealthStatusStr = healthStr;
         win.webContents.send('widget-counts', counts);
         win.webContents.executeJavaScript(
-          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();var s=document.getElementById('dot-sitting');var t=document.getElementById('dot-tenosynovitis');var w=document.getElementById('dot-water');if(s){if(${health.sitting})s.classList.add('active');else s.classList.remove('active');}if(t){if(${health.tenosynovitis})t.classList.add('active');else t.classList.remove('active');}if(w){if(${health.water})w.classList.add('active');else w.classList.remove('active');}})();`
+          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();var s=document.getElementById('dot-sitting');var t=document.getElementById('dot-tenosynovitis');var w=document.getElementById('dot-water');var any=${health.sitting||health.tenosynovitis||health.water};var parent=document.querySelector('.health-dots');if(parent){if(any)parent.classList.add('has-active');else parent.classList.remove('has-active');}if(s){if(${health.sitting})s.classList.add('active');else s.classList.remove('active');}if(t){if(${health.tenosynovitis})t.classList.add('active');else t.classList.remove('active');}if(w){if(${health.water})w.classList.add('active');else w.classList.remove('active');}})();`
         ).catch(() => {});
       }
       const ini = getGuiIni();
@@ -256,7 +257,10 @@ function createWindow() {
   if (initialVisible === '0') win.hide();
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  try { fs.writeFileSync(WIDGET_PID_FILE, String(process.pid), 'utf8'); } catch (_) {}
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (tickInterval) clearInterval(tickInterval);
