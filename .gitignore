@@ -7,6 +7,9 @@ count.ini
 gui.ini
 data/*.ini
 
+# ----- Node.js / API -----
+api/node_modules/
+
 # ----- Node.js / Electron (widget) -----
 widget/node_modules/
 widget/dist/
@@ -14,6 +17,10 @@ widget/out/
 widget/*.exe
 widget/*.dmg
 widget/*.AppImage
+
+# ----- AHK 脚本 -----
+*.ahk~
+*.ahk.bak
 
 # ----- 日志与临时文件 -----
 keycounter_widget_cmd.txt
@@ -23,6 +30,7 @@ keycounter_widget_cmd.txt
 *.bak
 *.swp
 *~
+debug-*.log
 
 # ----- 操作系统 -----
 .DS_Store
@@ -33,8 +41,14 @@ ehthumbs.db
 # ----- 编辑器 / IDE -----
 .vscode/
 .idea/
+.cursor/
 *.sublime-project
 *.sublime-workspace
+
+# ----- 环境与密钥（若后续添加） -----
+.env
+.env.local
+.env.*.local
 
 # ----- 可选：若打赏二维码为个人收款码，可取消下行注释 -----
 # public/moneycome.jpg
