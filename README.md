@@ -27,6 +27,8 @@
    ```bash
    cd widget
    npm install
+   cd ../api
+   npm install
    cd ..
    ```
 

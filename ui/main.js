@@ -14,6 +14,27 @@
     return window.__KEYCOUNTER_DATA__ || {};
   }
 
+  async function loadData() {
+    try {
+      const res = await fetch('/api/data');
+      if (!res.ok) throw new Error(res.statusText);
+      const json = await res.json();
+      window.__KEYCOUNTER_DATA__ = {
+        currentDayId: json.currentDayId,
+        totals: json.totals || {},
+        days: json.days || [],
+        dayData: json.dayData || {}
+      };
+      window.__KEYCOUNTER_GUI_INI__ = json.guiIni || { Floating: {}, Preferences: {} };
+      return true;
+    } catch (e) {
+      console.error('loadData failed:', e);
+      window.__KEYCOUNTER_DATA__ = { currentDayId: '', totals: {}, days: [], dayData: {} };
+      window.__KEYCOUNTER_GUI_INI__ = { Floating: {}, Preferences: {} };
+      return false;
+    }
+  }
+
   function formatDayId(dayId) {
     if (!dayId || dayId.length !== 8) return dayId || '-';
     return dayId.slice(0, 4) + '-' + dayId.slice(4, 6) + '-' + dayId.slice(6, 8);
@@ -497,6 +518,8 @@
         document.getElementById('headerTitle').textContent = page === 'dashboard' ? 'Dashboard' : 'Preferences';
         document.getElementById('headerDate').style.visibility = page === 'dashboard' ? 'visible' : 'hidden';
         if (refreshBtn) refreshBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
+        const exportBtn = document.getElementById('headerExportBtn');
+        if (exportBtn) exportBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
         if (page === 'preferences') initPrefsForm();
       };
     });
@@ -504,23 +527,37 @@
       refreshBtn.style.display = 'inline-flex';
       refreshBtn.onclick = doRefresh;
     }
+    const exportBtn = document.getElementById('headerExportBtn');
+    if (exportBtn) {
+      exportBtn.style.display = 'inline-flex';
+      exportBtn.onclick = doExport;
+    }
   }
 
-  function doRefresh() {
+  async function doExport() {
+    try {
+      const res = await fetch('/api/export');
+      if (!res.ok) throw new Error(res.statusText);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'keycounter-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('doExport failed:', e);
+      alert('导出失败：请先在项目目录运行 node api/index.js 启动 API 服务。');
+    }
+  }
+
+  async function doRefresh() {
     const btn = document.getElementById('headerRefreshBtn');
     if (btn) btn.classList.add('refreshing');
-    const script = document.createElement('script');
-    script.src = 'data.js?t=' + Date.now();
-    script.onload = function () {
-      render();
-      script.remove();
-      if (btn) btn.classList.remove('refreshing');
-    };
-    script.onerror = function () {
-      location.reload(true);
-      if (btn) btn.classList.remove('refreshing');
-    };
-    document.body.appendChild(script);
+    const ok = await loadData();
+    if (btn) btn.classList.remove('refreshing');
+    if (ok) render();
+    else alert('刷新失败，请确保 API 服务已启动。');
   }
 
   function getGuiIni() {
@@ -548,7 +585,7 @@
     if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; };
   }
 
-  function savePrefs() {
+  async function savePrefs() {
     const gui = getGuiIni();
     const f = gui.Floating || {};
     const width = parseInt(document.getElementById('prefWidth').value, 10) || 160;
@@ -570,21 +607,25 @@
     ];
     const content = lines.join('\r\n');
 
-    if (typeof window.showSaveFilePicker === 'function') {
-      window.showSaveFilePicker({ suggestedName: 'gui.ini', types: [{ description: 'INI', accept: { 'text/plain': ['.ini'] } }] })
-        .then((h) => h.createWritable().then((w) => { w.write(content); w.close(); alert('已保存，请将 gui.ini 放到 KeyCounter 项目目录下替换原文件。'); }))
-        .catch(() => fallbackDownload(content));
-    } else {
-      fallbackDownload(content);
+    try {
+      const res = await fetch('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        alert('设置已保存，悬浮框将自动更新。');
+        window.__KEYCOUNTER_GUI_INI__ = {
+          Floating: f,
+          Preferences: { Width: String(width), Height: String(height), Transparency: String(transparency), BorderRadius: String(borderRadius) }
+        };
+      } else {
+        throw new Error(res.statusText);
+      }
+    } catch (e) {
+      console.error('savePrefs failed:', e);
+      alert('保存失败：' + (e.message || '请重试。'));
     }
-  }
-
-  function fallbackDownload(content) {
-    const a = document.createElement('a');
-    a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
-    a.download = 'gui.ini';
-    a.click();
-    alert('已下载 gui.ini，请将其放到 KeyCounter 项目目录下替换原文件。');
   }
 
   document.getElementById('prefsSaveBtn').onclick = savePrefs;
@@ -596,14 +637,21 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  async function init() {
+    // 统一通过 fetch 加载，避免 data.js 与 Preferences 的 API/fetch 冲突
+    const headerEl = document.getElementById('headerDate');
+    if (headerEl) headerEl.textContent = '加载中...';
+    const ok = await loadData();
+    if (!ok) {
+      document.getElementById('headerDate').textContent = '数据加载失败，请确保 API 服务已启动。';
+    }
     render();
     initNav();
     maybeOpenPrefs();
-  });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => init());
   if (document.readyState !== 'loading') {
-    render();
-    initNav();
-    maybeOpenPrefs();
+    init();
   }
 })();

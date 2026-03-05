@@ -24,6 +24,7 @@
       <header class="header">
         <div class="header-title-row">
           <span class="header-title" id="headerTitle">Dashboard</span>
+          <button type="button" class="header-export-btn" id="headerExportBtn" title="导出数据" aria-label="导出">导出</button>
           <button type="button" class="header-refresh-btn" id="headerRefreshBtn" title="刷新数据" aria-label="刷新">
             <svg class="header-refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 4v6h-6M1 20v-6h6"/>
@@ -121,38 +122,35 @@
           <div class="prefs-layout">
             <div class="prefs-left">
               <h3 class="panel-title">悬浮框设置</h3>
-              <p class="prefs-placeholder">
-                <span class="prefs-line1">前方的区域以后再来探索吧~</span><br>
-                <span class="prefs-line2">（其实是作者卡在这里做不出来了嘻嘻）</span>
-              </p>
+              <p class="prefs-placeholder">调整悬浮框的尺寸、透明度和圆角，保存后立即生效。</p>
               <div class="prefs-form">
             <div class="prefs-row">
               <label>宽度</label>
-              <input type="number" id="prefWidth" min="100" max="400" step="10" disabled />
+              <input type="number" id="prefWidth" min="100" max="400" step="10" />
               <span class="prefs-unit">px</span>
             </div>
             <div class="prefs-row">
               <label>高度</label>
-              <input type="number" id="prefHeight" min="50" max="200" step="5" disabled />
+              <input type="number" id="prefHeight" min="50" max="200" step="5" />
               <span class="prefs-unit">px</span>
             </div>
             <div class="prefs-row">
               <label>透明度</label>
-              <input type="range" id="prefTransparency" min="30" max="100" disabled />
+              <input type="range" id="prefTransparency" min="30" max="100" />
               <span class="prefs-value" id="prefTransparencyVal">94</span>
               <span class="prefs-unit">%</span>
             </div>
             <div class="prefs-row">
               <label>圆角</label>
-              <input type="number" id="prefBorderRadius" min="0" max="30" step="2" disabled />
+              <input type="number" id="prefBorderRadius" min="0" max="30" step="2" />
               <span class="prefs-unit">px</span>
             </div>
-            <button type="button" class="prefs-save-btn" id="prefsSaveBtn" disabled>保存设置</button>
+            <button type="button" class="prefs-save-btn" id="prefsSaveBtn">保存设置</button>
               </div>
             </div>
             <div class="prefs-donation">
               <p class="prefs-donation-text">！😋打赏作者更有力气😋！</p>
-              <img src="moneycome.jpg" alt="打赏" class="prefs-donation-qr" />
+              <img src="/public/moneycome.jpg" alt="打赏" class="prefs-donation-qr" onerror="this.style.display='none'" />
             </div>
           </div>
         </section>
@@ -160,7 +158,6 @@
     </main>
   </div>
 
-  <script src="data.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

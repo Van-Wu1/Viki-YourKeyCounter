@@ -32,7 +32,7 @@ isGuiShown = 0
 
 currentDayId =
 dashboardPid =
-dashboardTempBase =
+apiPid =
 needSaveState = 0
 
 ;-------------------------
@@ -163,6 +163,28 @@ return
     Gosub, HandleKeyEvent
 return
 
+; 修饰键与功能键
+~*LShift:: Gosub, HandleKeyEvent
+~*RShift:: Gosub, HandleKeyEvent
+~*LCtrl:: Gosub, HandleKeyEvent
+~*RCtrl:: Gosub, HandleKeyEvent
+~*LAlt:: Gosub, HandleKeyEvent
+~*RAlt:: Gosub, HandleKeyEvent
+~*CapsLock:: Gosub, HandleKeyEvent
+~*Esc:: Gosub, HandleKeyEvent
+~*F1:: Gosub, HandleKeyEvent
+~*F2:: Gosub, HandleKeyEvent
+~*F3:: Gosub, HandleKeyEvent
+~*F4:: Gosub, HandleKeyEvent
+~*F5:: Gosub, HandleKeyEvent
+~*F6:: Gosub, HandleKeyEvent
+~*F7:: Gosub, HandleKeyEvent
+~*F8:: Gosub, HandleKeyEvent
+~*F9:: Gosub, HandleKeyEvent
+~*F10:: Gosub, HandleKeyEvent
+~*F11:: Gosub, HandleKeyEvent
+~*F12:: Gosub, HandleKeyEvent
+
 ;-------------------------
 ; 事件统一处理
 ;-------------------------
@@ -177,6 +199,14 @@ NormalizeKeyName:
     StringReplace, keyName, keyName, ~,, All
     StringReplace, keyName, keyName, *,, All
     StringReplace, keyName, keyName, $,, All
+
+    ; 修饰键合并（左右统一）
+    if (keyName = "LShift" or keyName = "RShift")
+        keyName = Shift
+    else if (keyName = "LCtrl" or keyName = "RCtrl")
+        keyName = Ctrl
+    else if (keyName = "LAlt" or keyName = "RAlt")
+        keyName = Alt
 
     StringLen, keyLen, keyName
     if (keyLen = 1) {
@@ -321,93 +351,18 @@ return
 
 OpenDashboardCore:
     SetWorkingDir, %A_ScriptDir%
-    tempBase = %A_Temp%\keycounter_dashboard
-    FileRemoveDir, %tempBase%, 1
-    FileCreateDir, %tempBase%
-    FileCopy, %A_ScriptDir%\ui\index.html, %tempBase%\index.html, 1
-    FileCopy, %A_ScriptDir%\ui\styles.css, %tempBase%\styles.css, 1
-    FileCopy, %A_ScriptDir%\ui\main.js, %tempBase%\main.js, 1
-    if (FileExist(A_ScriptDir . "\public\moneycome.jpg"))
-        FileCopy, %A_ScriptDir%\public\moneycome.jpg, %tempBase%\moneycome.jpg, 1
-
-    ; 生成 data.js（内联，避免 Gosub 标签解析问题）
-    dataPath = %tempBase%\data.js
-    IniRead, metaDayId, %A_ScriptDir%\count.ini, Meta, DayId,
-    IniRead, totKb, %A_ScriptDir%\count.ini, Total, Keyboard, 0
-    IniRead, totML, %A_ScriptDir%\count.ini, Total, MouseLeft, 0
-    IniRead, totMR, %A_ScriptDir%\count.ini, Total, MouseRight, 0
-    IniRead, totWU, %A_ScriptDir%\count.ini, Total, WheelUp, 0
-    IniRead, totWD, %A_ScriptDir%\count.ini, Total, WheelDown, 0
-    daysArr =
-    dayData =
-    Loop, %A_ScriptDir%\data\*.ini, 0
+    ; 先终止旧 API，确保加载最新代码
+    if (apiPid)
     {
-        fname := A_LoopFileName
-        StringReplace, dayId, fname, .ini,, All
-        if daysArr =
-            daysArr = "%dayId%"
-        else
-            daysArr = %daysArr%,"%dayId%"
-        IniRead, kb, %A_ScriptDir%\data\%dayId%.ini, Day, Keyboard, 0
-        IniRead, ml, %A_ScriptDir%\data\%dayId%.ini, Day, MouseLeft, 0
-        IniRead, mr, %A_ScriptDir%\data\%dayId%.ini, Day, MouseRight, 0
-        IniRead, wu, %A_ScriptDir%\data\%dayId%.ini, Day, WheelUp, 0
-        IniRead, wd, %A_ScriptDir%\data\%dayId%.ini, Day, WheelDown, 0
-        perKeyJson =
-        inPerKey = 0
-        Loop, Read, %A_ScriptDir%\data\%dayId%.ini
-        {
-            line := A_LoopReadLine
-            if (SubStr(line, 1, 1) = "[")
-            {
-                inPerKey = 0
-                if (line = "[PerKey]")
-                    inPerKey = 1
-                continue
-            }
-            if (inPerKey = 1) and InStr(line, "=")
-            {
-                pos := InStr(line, "=")
-                key := SubStr(line, 1, pos - 1)
-                val := SubStr(line, pos + 1)
-                if perKeyJson =
-                    perKeyJson = "%key%":%val%
-                else
-                    perKeyJson = %perKeyJson%,"%key%":%val%
-            }
-        }
-        dayObj = {"totals":{"keyboard":%kb%,"mouseLeft":%ml%,"mouseRight":%mr%,"wheelUp":%wu%,"wheelDown":%wd%},"perKey":{%perKeyJson%}}
-        if dayData =
-            dayData = "%dayId%":%dayObj%
-        else
-            dayData = %dayData%,"%dayId%":%dayObj%
+        Process, Close, %apiPid%
+        apiPid =
+        Sleep, 500
     }
-    if daysArr =
-        daysArr = []
-    else
-        daysArr = [%daysArr%]
-    if dayData =
-        dayData = {}
-    else
-        dayData = {%dayData%}
-    ; 读取 gui.ini 供 Preferences 使用
-    IniRead, guiX, %A_ScriptDir%\gui.ini, Floating, X, 0
-    IniRead, guiY, %A_ScriptDir%\gui.ini, Floating, Y, 0
-    IniRead, guiVis, %A_ScriptDir%\gui.ini, Floating, Visible, 1
-    IniRead, prefW, %A_ScriptDir%\gui.ini, Preferences, Width, 160
-    IniRead, prefH, %A_ScriptDir%\gui.ini, Preferences, Height, 70
-    IniRead, prefT, %A_ScriptDir%\gui.ini, Preferences, Transparency, 94
-    IniRead, prefB, %A_ScriptDir%\gui.ini, Preferences, BorderRadius, 14
-    guiIniJson = {"Floating":{"X":"%guiX%","Y":"%guiY%","Visible":"%guiVis%"},"Preferences":{"Width":"%prefW%","Height":"%prefH%","Transparency":"%prefT%","BorderRadius":"%prefB%"}}
-    jsContent = window.__KEYCOUNTER_DATA__={"currentDayId":"%metaDayId%","totals":{"keyboard":%totKb%,"mouseLeft":%totML%,"mouseRight":%totMR%,"wheelUp":%totWU%,"wheelDown":%totWD%},"days":%daysArr%,"dayData":%dayData%};window.__KEYCOUNTER_GUI_INI__=%guiIniJson%;
-    ; 先写入脚本目录再复制，避免 temp 路径写入失败；内联易导致 </script> 破坏 HTML
-    dataJsLocal = %A_ScriptDir%\data_dashboard.js
-    FileDelete, %dataJsLocal%
-    FileAppend, %jsContent%, %dataJsLocal%
-    FileCopy, %dataJsLocal%, %tempBase%\data.js, 1
-    FileDelete, %dataJsLocal%
+    ; 不设置 KEYCOUNTER_ROOT，避免中文路径编码问题；API 使用 __dirname 解析路径
+    apiScript = %A_ScriptDir%\api\index.js
+    Run, node "%apiScript%", %A_ScriptDir%, Hide, apiPid
+    Sleep, 2000
 
-    ; 使用 Edge --app 模式打开（Chromium 渲染，支持现代 JS/CSS）
     edgePath = %A_ProgramFiles%\Microsoft\Edge\Application\msedge.exe
     edgeExists := FileExist(edgePath)
     if (!edgeExists)
@@ -419,98 +374,11 @@ OpenDashboardCore:
             edgeExists = 1
         }
     }
-    dashboardTempBase = %tempBase%
+    dashboardUrl = http://localhost:3000/%dashboardHash%
     if (edgeExists)
-        Run, "%edgePath%" --app="%tempBase%\index.html%dashboardHash%" --window-size=900`,600, , , dashboardPid
+        Run, "%edgePath%" --app="%dashboardUrl%" --window-size=900`,600, , , dashboardPid
     else
-        Run, "%tempBase%\index.html%dashboardHash%", , , dashboardPid
-    SetTimer, RegenerateDashboardData, 5000
-return
-
-RegenerateDashboardData:
-    if (dashboardTempBase = "")
-        return
-    if (!FileExist(dashboardTempBase))
-        return
-    Gosub, RegenerateDashboardDataCore
-return
-
-RegenerateDashboardDataCore:
-    SetWorkingDir, %A_ScriptDir%
-    tempBase = %dashboardTempBase%
-    dataPath = %tempBase%\data.js
-    IniRead, metaDayId, %A_ScriptDir%\count.ini, Meta, DayId,
-    IniRead, totKb, %A_ScriptDir%\count.ini, Total, Keyboard, 0
-    IniRead, totML, %A_ScriptDir%\count.ini, Total, MouseLeft, 0
-    IniRead, totMR, %A_ScriptDir%\count.ini, Total, MouseRight, 0
-    IniRead, totWU, %A_ScriptDir%\count.ini, Total, WheelUp, 0
-    IniRead, totWD, %A_ScriptDir%\count.ini, Total, WheelDown, 0
-    daysArr =
-    dayData =
-    Loop, %A_ScriptDir%\data\*.ini, 0
-    {
-        fname := A_LoopFileName
-        StringReplace, dayId, fname, .ini,, All
-        if daysArr =
-            daysArr = "%dayId%"
-        else
-            daysArr = %daysArr%,"%dayId%"
-        IniRead, kb, %A_ScriptDir%\data\%dayId%.ini, Day, Keyboard, 0
-        IniRead, ml, %A_ScriptDir%\data\%dayId%.ini, Day, MouseLeft, 0
-        IniRead, mr, %A_ScriptDir%\data\%dayId%.ini, Day, MouseRight, 0
-        IniRead, wu, %A_ScriptDir%\data\%dayId%.ini, Day, WheelUp, 0
-        IniRead, wd, %A_ScriptDir%\data\%dayId%.ini, Day, WheelDown, 0
-        perKeyJson =
-        inPerKey = 0
-        Loop, Read, %A_ScriptDir%\data\%dayId%.ini
-        {
-            line := A_LoopReadLine
-            if (SubStr(line, 1, 1) = "[")
-            {
-                inPerKey = 0
-                if (line = "[PerKey]")
-                    inPerKey = 1
-                continue
-            }
-            if (inPerKey = 1) and InStr(line, "=")
-            {
-                pos := InStr(line, "=")
-                key := SubStr(line, 1, pos - 1)
-                val := SubStr(line, pos + 1)
-                if perKeyJson =
-                    perKeyJson = "%key%":%val%
-                else
-                    perKeyJson = %perKeyJson%,"%key%":%val%
-            }
-        }
-        dayObj = {"totals":{"keyboard":%kb%,"mouseLeft":%ml%,"mouseRight":%mr%,"wheelUp":%wu%,"wheelDown":%wd%},"perKey":{%perKeyJson%}}
-        if dayData =
-            dayData = "%dayId%":%dayObj%
-        else
-            dayData = %dayData%,"%dayId%":%dayObj%
-    }
-    if daysArr =
-        daysArr = []
-    else
-        daysArr = [%daysArr%]
-    if dayData =
-        dayData = {}
-    else
-        dayData = {%dayData%}
-    IniRead, guiX, %A_ScriptDir%\gui.ini, Floating, X, 0
-    IniRead, guiY, %A_ScriptDir%\gui.ini, Floating, Y, 0
-    IniRead, guiVis, %A_ScriptDir%\gui.ini, Floating, Visible, 1
-    IniRead, prefW, %A_ScriptDir%\gui.ini, Preferences, Width, 160
-    IniRead, prefH, %A_ScriptDir%\gui.ini, Preferences, Height, 70
-    IniRead, prefT, %A_ScriptDir%\gui.ini, Preferences, Transparency, 94
-    IniRead, prefB, %A_ScriptDir%\gui.ini, Preferences, BorderRadius, 14
-    guiIniJson = {"Floating":{"X":"%guiX%","Y":"%guiY%","Visible":"%guiVis%"},"Preferences":{"Width":"%prefW%","Height":"%prefH%","Transparency":"%prefT%","BorderRadius":"%prefB%"}}
-    jsContent = window.__KEYCOUNTER_DATA__={"currentDayId":"%metaDayId%","totals":{"keyboard":%totKb%,"mouseLeft":%totML%,"mouseRight":%totMR%,"wheelUp":%totWU%,"wheelDown":%totWD%},"days":%daysArr%,"dayData":%dayData%};window.__KEYCOUNTER_GUI_INI__=%guiIniJson%;
-    dataJsLocal = %A_ScriptDir%\data_dashboard.js
-    FileDelete, %dataJsLocal%
-    FileAppend, %jsContent%, %dataJsLocal%
-    FileCopy, %dataJsLocal%, %tempBase%\data.js, 1
-    FileDelete, %dataJsLocal%
+        Run, "%dashboardUrl%", , , dashboardPid
 return
 
 ;-------------------------
@@ -625,12 +493,15 @@ OpenSource:
 return
 
 Reset:
-    SetTimer, RegenerateDashboardData, Off
     SetTimer, CheckWidgetCommand, Off
     SetTimer, FlushSave, Off
     if (needSaveState)
         Gosub, FlushSave
-    dashboardTempBase =
+    if (apiPid)
+    {
+        Process, Close, %apiPid%
+        apiPid =
+    }
     if (dashboardPid)
     {
         Process, Close, %dashboardPid%
@@ -641,12 +512,15 @@ Reset:
     Reload
 
 ExitAppLabel:
-    SetTimer, RegenerateDashboardData, Off
     SetTimer, CheckWidgetCommand, Off
     SetTimer, FlushSave, Off
     if (needSaveState)
         Gosub, FlushSave
-    dashboardTempBase =
+    if (apiPid)
+    {
+        Process, Close, %apiPid%
+        apiPid =
+    }
     if (dashboardPid)
     {
         Process, Close, %dashboardPid%
