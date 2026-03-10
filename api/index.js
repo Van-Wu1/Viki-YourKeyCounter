@@ -146,8 +146,7 @@ function buildDashboardData() {
     guiIni: {
       Floating: { X: floating.X || '0', Y: floating.Y || '0', Visible: floating.Visible || '1' },
       Preferences: {
-        Width: prefs.Width || '160',
-        Height: prefs.Height || '70',
+        SizePercent: prefs.SizePercent || '30',
         Transparency: prefs.Transparency || '94',
         BorderRadius: prefs.BorderRadius || '14',
         SittingEnabled: prefs.SittingEnabled || '1',

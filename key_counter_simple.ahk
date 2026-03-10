@@ -474,8 +474,23 @@ OpenDashboardCore() {
     dashboardUrl := "http://localhost:3000/" (dashboardHash ?? "")
     if (edgeExists) {
         try Run('"' edgePath '" --app="' dashboardUrl '" --window-size=900,600', , , &dashboardPid)
+        SetTimer(BringDashboardToFront, 500)
     } else {
         Run(dashboardUrl)
+    }
+}
+
+; 打开时置顶一次，不持续置顶
+BringDashboardToFront() {
+    static tries := 0
+    tries += 1
+    if WinExist("KeyCounter Dashboard") {
+        WinActivate("KeyCounter Dashboard")
+        SetTimer(BringDashboardToFront, 0)
+        tries := 0
+    } else if (tries >= 20) {
+        SetTimer(BringDashboardToFront, 0)
+        tries := 0
     }
 }
 

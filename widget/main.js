@@ -5,7 +5,10 @@ const fs = require('fs');
 const APP_ROOT = path.resolve(__dirname, '..');
 const WIDGET_CMD_FILE = path.join(APP_ROOT, 'keycounter_widget_cmd.txt');
 const WIDGET_PID_FILE = path.join(APP_ROOT, 'keycounter_widget_pid.txt');
-const DEFAULT_PREFS = { width: 160, height: 70, transparency: 94, borderRadius: 14 };
+const SIZE_BASE_W = 200;
+const SIZE_BASE_H = 45;
+const SIZE_BASE_PCT = 30;
+const DEFAULT_PREFS = { width: 200, height: 45, transparency: 94, borderRadius: 14 };
 const GUI_INI = path.join(APP_ROOT, 'gui.ini');
 const COUNT_INI = path.join(APP_ROOT, 'count.ini');
 const HEALTH_STATUS_INI = path.join(APP_ROOT, 'health_status.ini');
@@ -43,11 +46,19 @@ function getGuiIni() {
 function getPrefs() {
   const ini = getGuiIni();
   const p = ini.Preferences || {};
+  let sizePercent = parseInt(p.SizePercent, 10);
+  if (isNaN(sizePercent) || sizePercent < 5 || sizePercent > 100) {
+    const oldW = parseInt(p.Width, 10);
+    sizePercent = oldW ? Math.round((oldW / SIZE_BASE_W) * SIZE_BASE_PCT / 5) * 5 : SIZE_BASE_PCT;
+    sizePercent = Math.max(5, Math.min(100, sizePercent));
+  }
+  const width = Math.round(SIZE_BASE_W * sizePercent / SIZE_BASE_PCT);
+  const height = Math.round(SIZE_BASE_H * sizePercent / SIZE_BASE_PCT);
   return {
-    width: parseInt(p.Width, 10) || DEFAULT_PREFS.width,
-    height: parseInt(p.Height, 10) || DEFAULT_PREFS.height,
-    transparency: parseInt(p.Transparency, 10) || DEFAULT_PREFS.transparency,
-    borderRadius: parseInt(p.BorderRadius, 10) || DEFAULT_PREFS.borderRadius,
+    width,
+    height,
+    transparency: (() => { const v = parseInt(p.Transparency, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.transparency : v; })(),
+    borderRadius: (() => { const v = parseInt(p.BorderRadius, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.borderRadius : v; })(),
     sittingEnabled: p.SittingEnabled !== '0',
     sittingMinutes: parseInt(p.SittingMinutes, 10) || 120,
     tenosynovitisEnabled: p.TenosynovitisEnabled !== '0',
@@ -64,9 +75,13 @@ function applyPrefsToWindow(win, prefs) {
   if (lastAppliedPrefs === key) return;
   lastAppliedPrefs = key;
   win.setSize(prefs.width, prefs.height);
-  const alpha = Math.max(0.1, Math.min(1, prefs.transparency / 100));
+  const alpha = Math.max(0, Math.min(1, prefs.transparency / 100));
+  const w = prefs.width;
+  const h = prefs.height;
+  const r = prefs.borderRadius;
+  const scale = prefs.width / SIZE_BASE_W;
   win.webContents.executeJavaScript(
-    `(function(){var w=${prefs.width};var h=${prefs.height};var r=${prefs.borderRadius};var a=${alpha};document.body.style.width=w+'px';document.body.style.height=h+'px';var d=document.getElementById('drag-area');if(d){d.style.borderRadius=r+'px';d.style.background='rgba(240,240,242,'+a+')';}})();`
+    `(function(){var w=${w};var h=${h};var r=${r};var a=${alpha};var s=${scale};var root=document.documentElement;var body=document.body;var d=document.getElementById('drag-area');var bg=document.getElementById('card-bg');[root,body,d].forEach(function(el){if(el){el.style.setProperty('--widget-w',w+'px');el.style.setProperty('--widget-h',h+'px');el.style.setProperty('--widget-scale',s);el.style.setProperty('--widget-radius',r+'px');}});if(body){body.style.width=w+'px';body.style.height=h+'px';}if(d){d.style.borderRadius=r+'px';}if(bg){bg.style.background='rgba(240,240,242,'+a+')';}})();`
   ).catch(() => {});
 }
 
@@ -209,6 +224,10 @@ function createWindow() {
 
   win.webContents.once('did-finish-load', () => {
     applyPrefsToWindow(win, prefs);
+    if (initialVisible !== '0') {
+      win.setAlwaysOnTop(true);
+      win.moveTop();
+    }
   });
 
   const tick = () => {
@@ -230,7 +249,11 @@ function createWindow() {
       const visible = (ini.Floating || {}).Visible;
       const newPrefs = getPrefs();
       if (visible === '0') win.hide();
-      else win.show();
+      else {
+        win.show();
+        win.setAlwaysOnTop(true);
+        win.moveTop();
+      }
       applyPrefsToWindow(win, newPrefs);
     } catch (_) {}
   };

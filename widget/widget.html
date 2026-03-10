@@ -1,31 +1,37 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com">
   <title>Viki Widget</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="widget.css">
 </head>
 <body>
-  <div id="drag-area">
-    <div class="health-header">
-      <div class="health-dots">
-        <span class="dot dot-sitting" id="dot-sitting" title="久坐提醒"></span>
-        <span class="dot dot-tenosynovitis" id="dot-tenosynovitis" title="腱鞘炎提醒"></span>
-        <span class="dot dot-water" id="dot-water" title="喝水提醒"></span>
-      </div>
-      <div class="title">Viki</div>
+  <div id="drag-area" class="viki-card">
+    <div class="viki-card-bg" id="card-bg"></div>
+    <div class="viki-card-content">
+    <!-- 品牌标识 -->
+    <div class="brand-label">Viki</div>
+
+    <!-- 键盘统计 -->
+    <div class="stat-box">
+      <i class="fa-solid fa-keyboard stat-icon" title="键盘"></i>
+      <span class="stat-num" id="keys-value">0</span>
     </div>
-    <div class="separator"></div>
-    <div class="metrics">
-      <div class="metric">
-        <div class="label">KEYS</div>
-        <div class="value" id="keys-value">0</div>
-      </div>
-      <div class="metric">
-        <div class="label">MOUSE</div>
-        <div class="value" id="mouse-value">0</div>
-      </div>
+
+    <!-- 鼠标统计 -->
+    <div class="stat-box">
+      <i class="fa-solid fa-mouse-pointer stat-icon" title="鼠标"></i>
+      <span class="stat-num" id="mouse-value">0</span>
+    </div>
+    </div>
+
+    <!-- 底部宽幅灯带（健康提醒：久坐/腱鞘炎/喝水）-->
+    <div class="health-dots light-bar-container" id="health-dots">
+      <div class="light-segment dot-sitting" id="dot-sitting" title="久坐提醒"></div>
+      <div class="light-segment dot-tenosynovitis" id="dot-tenosynovitis" title="腱鞘炎提醒"></div>
+      <div class="light-segment dot-water" id="dot-water" title="喝水提醒"></div>
     </div>
   </div>
   <script src="widget.js"></script>

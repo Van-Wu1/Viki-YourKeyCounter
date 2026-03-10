@@ -570,10 +570,16 @@
   function initPrefsForm() {
     const gui = getGuiIni();
     const p = gui.Preferences || {};
-    const width = parseInt(p.Width, 10) || 160;
-    const height = parseInt(p.Height, 10) || 70;
-    const transparency = parseInt(p.Transparency, 10) || 94;
-    const borderRadius = parseInt(p.BorderRadius, 10) || 14;
+    let sizePercent = parseInt(p.SizePercent, 10);
+    if (isNaN(sizePercent) || sizePercent < 5 || sizePercent > 100) {
+      const oldW = parseInt(p.Width, 10) || 200;
+      sizePercent = Math.round((oldW / 200) * 30 / 5) * 5;
+      sizePercent = Math.max(5, Math.min(100, sizePercent));
+    }
+    const tv = parseInt(p.Transparency, 10);
+    const transparency = (isNaN(tv) || tv < 0) ? 94 : tv;
+    const br = parseInt(p.BorderRadius, 10);
+    const borderRadius = (isNaN(br) || br < 0) ? 14 : br;
     const sittingEnabled = p.SittingEnabled !== '0';
     const sittingMinutes = parseInt(p.SittingMinutes, 10) || 120;
     const tenosynovitisEnabled = p.TenosynovitisEnabled !== '0';
@@ -583,8 +589,8 @@
     const waterMinutes = parseInt(p.WaterMinutes, 10) || 45;
     const reminderCooldown = parseInt(p.ReminderCooldown, 10) || 1;
 
-    const wEl = document.getElementById('prefWidth');
-    const hEl = document.getElementById('prefHeight');
+    const spEl = document.getElementById('prefSizePercent');
+    const spVal = document.getElementById('prefSizePercentVal');
     const tEl = document.getElementById('prefTransparency');
     const bEl = document.getElementById('prefBorderRadius');
     const tVal = document.getElementById('prefTransparencyVal');
@@ -596,8 +602,7 @@
     const weEl = document.getElementById('prefWaterEnabled');
     const wmEl = document.getElementById('prefWaterMinutes');
     const rcEl = document.getElementById('prefReminderCooldown');
-    if (wEl) wEl.value = width;
-    if (hEl) hEl.value = height;
+    if (spEl) { spEl.value = sizePercent; if (spVal) spVal.textContent = sizePercent; }
     if (tEl) { tEl.value = transparency; tVal.textContent = transparency; }
     if (bEl) bEl.value = borderRadius;
     if (seEl) seEl.checked = sittingEnabled;
@@ -610,15 +615,17 @@
     if (rcEl) rcEl.value = reminderCooldown;
 
     if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; };
+    if (spEl && spVal) spEl.oninput = () => { spVal.textContent = spEl.value; };
   }
 
   async function savePrefs() {
     const gui = getGuiIni();
     const f = gui.Floating || {};
-    const width = parseInt(document.getElementById('prefWidth').value, 10) || 160;
-    const height = parseInt(document.getElementById('prefHeight').value, 10) || 70;
-    const transparency = parseInt(document.getElementById('prefTransparency').value, 10) || 94;
-    const borderRadius = parseInt(document.getElementById('prefBorderRadius').value, 10) || 14;
+    const sizePercent = parseInt(document.getElementById('prefSizePercent').value, 10) || 30;
+    const tv = parseInt(document.getElementById('prefTransparency').value, 10);
+    const transparency = (isNaN(tv) || tv < 0) ? 94 : tv;
+    const br = parseInt(document.getElementById('prefBorderRadius').value, 10);
+    const borderRadius = (isNaN(br) || br < 0) ? 14 : br;
     const sittingEnabled = document.getElementById('prefSittingEnabled').checked ? '1' : '0';
     const sittingMinutes = parseInt(document.getElementById('prefSittingMinutes').value, 10) || 120;
     const tenosynovitisEnabled = document.getElementById('prefTenosynovitisEnabled').checked ? '1' : '0';
@@ -635,8 +642,7 @@
       'Visible=' + (f.Visible || '1'),
       '',
       '[Preferences]',
-      'Width=' + width,
-      'Height=' + height,
+      'SizePercent=' + sizePercent,
       'Transparency=' + transparency,
       'BorderRadius=' + borderRadius,
       'SittingEnabled=' + sittingEnabled,
@@ -661,7 +667,7 @@
         window.__KEYCOUNTER_GUI_INI__ = {
           Floating: f,
           Preferences: {
-            Width: String(width), Height: String(height), Transparency: String(transparency), BorderRadius: String(borderRadius),
+            SizePercent: String(sizePercent), Transparency: String(transparency), BorderRadius: String(borderRadius),
             SittingEnabled: sittingEnabled, SittingMinutes: String(sittingMinutes),
             TenosynovitisEnabled: tenosynovitisEnabled, KeyboardThreshold: String(keyboardThreshold),
             MouseThreshold: String(mouseThreshold), WaterEnabled: waterEnabled, WaterMinutes: String(waterMinutes),

@@ -1,41 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@600&display=swap');
+
+/* 基准 200×45（30%），--widget-scale/--widget-radius 由 main.js 根据设置注入 */
+:root {
+  --widget-w: 200px;
+  --widget-h: 45px;
+  --widget-scale: 1;
+  --widget-radius: 14px;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  width: 160px;
-  height: 70px;
+  width: var(--widget-w);
+  height: var(--widget-h);
   overflow: hidden;
   background: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-app-region: drag;
   user-select: none;
 }
 
-#drag-area {
+#drag-area.viki-card {
+  position: relative;
   width: 100%;
   height: 100%;
-  background: rgba(240, 240, 242, 0.94);
-  border-radius: 14px;
-  padding: 8px 12px;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: border-color 0.3s, box-shadow 0.3s;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
 }
 
-.health-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+/* 仅背景层受透明度影响，内容层保持不透明 */
+.viki-card-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(240, 240, 242, 0.94);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border-radius: inherit;
+  z-index: 0;
 }
 
-.health-dots {
+.viki-card-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: calc(16px * var(--widget-scale));
+  padding: calc(10px * var(--widget-scale)) calc(12px * var(--widget-scale)) calc(12px * var(--widget-scale));
+  color: #1e293b;
+}
+
+/* 品牌标识 - 字号随 scale 缩放 */
+.brand-label {
+  font-family: 'Inter', sans-serif;
+  font-size: calc(9px * var(--widget-scale));
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   flex-shrink: 0;
 }
 
+/* 统计区域 */
+.stat-box {
+  display: flex;
+  align-items: center;
+  gap: calc(5px * var(--widget-scale));
+}
+
+.stat-icon {
+  font-size: calc(10px * var(--widget-scale));
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.stat-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: calc(14px * var(--widget-scale));
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: -0.5px;
+}
+
+/* 底部灯带 - 高度随 scale 缩放，5px 基准 */
+.health-dots.light-bar-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: calc(5px * var(--widget-scale));
+  display: flex;
+  gap: calc(2px * var(--widget-scale));
+  border-radius: 0 0 var(--widget-radius) var(--widget-radius);
+}
+
+/* 原版呼吸动画（颜色和动态效果沿用） */
 .health-dots.has-active {
   animation: dot-blink 1.2s ease-in-out infinite;
 }
@@ -45,53 +106,26 @@ html, body {
   50% { opacity: 0.3; }
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1px solid #9ca3af;
-  background: transparent;
+/* 灯带单元 - 默认状态 */
+.light-segment {
+  flex: 1;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.06);
   transition: background-color 0.2s, border-color 0.2s;
 }
 
-.dot-sitting.active { background: #ef4444; border-color: #ef4444; }
-.dot-tenosynovitis.active { background: #eab308; border-color: #eab308; }
-.dot-water.active { background: #3b82f6; border-color: #3b82f6; }
-
-.title {
-  font-size: 10px;
-  font-weight: 600;
-  color: #374151;
-  text-align: center;
-  flex: 1;
-  margin: 0;
+/* 激活状态 - 原版颜色 */
+.light-segment.dot-sitting.active {
+  background: #ef4444;
+  box-shadow: 0 -2px 8px rgba(239, 68, 68, 0.4);
 }
 
-.separator {
-  height: 1px;
-  background: #d1d5db;
-  margin-bottom: 6px;
+.light-segment.dot-tenosynovitis.active {
+  background: #eab308;
+  box-shadow: 0 -2px 8px rgba(234, 179, 8, 0.4);
 }
 
-.metrics {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.metric {
-  flex: 1;
-  text-align: center;
-}
-
-.metric .label {
-  font-size: 9px;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.metric .value {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1a1a1a;
+.light-segment.dot-water.active {
+  background: #3b82f6;
+  box-shadow: 0 -2px 8px rgba(59, 130, 246, 0.4);
 }
