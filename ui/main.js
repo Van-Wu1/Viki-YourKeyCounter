@@ -523,7 +523,9 @@
         if (refreshBtn) refreshBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
         const exportBtn = document.getElementById('headerExportBtn');
         if (exportBtn) exportBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
-        if (page === 'preferences') initPrefsForm();
+        if (page === 'preferences') {
+          loadData().then(() => initPrefsForm());
+        }
       };
     });
     if (refreshBtn) {
@@ -588,6 +590,7 @@
     const waterEnabled = p.WaterEnabled !== '0';
     const waterMinutes = parseInt(p.WaterMinutes, 10) || 45;
     const reminderCooldown = parseInt(p.ReminderCooldown, 10) || 1;
+    const theme = (p.Theme || 'light').toLowerCase() === 'dark' ? 'dark' : 'light';
 
     const spEl = document.getElementById('prefSizePercent');
     const spVal = document.getElementById('prefSizePercentVal');
@@ -613,8 +616,17 @@
     if (weEl) weEl.checked = waterEnabled;
     if (wmEl) wmEl.value = waterMinutes;
     if (rcEl) rcEl.value = reminderCooldown;
+    document.querySelectorAll('.theme-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
 
     if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; };
+    document.querySelectorAll('.theme-btn').forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+      };
+    });
     if (spEl && spVal) spEl.oninput = () => { spVal.textContent = spEl.value; };
   }
 
@@ -634,6 +646,7 @@
     const waterEnabled = document.getElementById('prefWaterEnabled').checked ? '1' : '0';
     const waterMinutes = parseInt(document.getElementById('prefWaterMinutes').value, 10) || 45;
     const reminderCooldown = parseInt(document.getElementById('prefReminderCooldown').value, 10) || 1;
+    const theme = document.querySelector('.theme-btn.active')?.dataset.theme || 'light';
 
     const lines = [
       '[Floating]',
@@ -642,6 +655,7 @@
       'Visible=' + (f.Visible || '1'),
       '',
       '[Preferences]',
+      'Theme=' + theme,
       'SizePercent=' + sizePercent,
       'Transparency=' + transparency,
       'BorderRadius=' + borderRadius,
@@ -667,7 +681,7 @@
         window.__KEYCOUNTER_GUI_INI__ = {
           Floating: f,
           Preferences: {
-            SizePercent: String(sizePercent), Transparency: String(transparency), BorderRadius: String(borderRadius),
+            Theme: theme, SizePercent: String(sizePercent), Transparency: String(transparency), BorderRadius: String(borderRadius),
             SittingEnabled: sittingEnabled, SittingMinutes: String(sittingMinutes),
             TenosynovitisEnabled: tenosynovitisEnabled, KeyboardThreshold: String(keyboardThreshold),
             MouseThreshold: String(mouseThreshold), WaterEnabled: waterEnabled, WaterMinutes: String(waterMinutes),

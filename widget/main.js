@@ -57,6 +57,7 @@ function getPrefs() {
   return {
     width,
     height,
+    theme: (p.Theme || 'light').toLowerCase() === 'dark' ? 'dark' : 'light',
     transparency: (() => { const v = parseInt(p.Transparency, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.transparency : v; })(),
     borderRadius: (() => { const v = parseInt(p.BorderRadius, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.borderRadius : v; })(),
     sittingEnabled: p.SittingEnabled !== '0',
@@ -80,8 +81,10 @@ function applyPrefsToWindow(win, prefs) {
   const h = prefs.height;
   const r = prefs.borderRadius;
   const scale = prefs.width / SIZE_BASE_W;
+  const theme = prefs.theme || 'light';
+  const bgRgba = theme === 'dark' ? `rgba(30,30,35,${alpha})` : `rgba(240,240,242,${alpha})`;
   win.webContents.executeJavaScript(
-    `(function(){var w=${w};var h=${h};var r=${r};var a=${alpha};var s=${scale};var root=document.documentElement;var body=document.body;var d=document.getElementById('drag-area');var bg=document.getElementById('card-bg');[root,body,d].forEach(function(el){if(el){el.style.setProperty('--widget-w',w+'px');el.style.setProperty('--widget-h',h+'px');el.style.setProperty('--widget-scale',s);el.style.setProperty('--widget-radius',r+'px');}});if(body){body.style.width=w+'px';body.style.height=h+'px';}if(d){d.style.borderRadius=r+'px';}if(bg){bg.style.background='rgba(240,240,242,'+a+')';}})();`
+    `(function(){var w=${w};var h=${h};var r=${r};var s=${scale};var theme='${theme}';var bgRgba='${bgRgba}';var root=document.documentElement;var body=document.body;var d=document.getElementById('drag-area');var bg=document.getElementById('card-bg');root.setAttribute('data-theme',theme);[root,body,d].forEach(function(el){if(el){el.style.setProperty('--widget-w',w+'px');el.style.setProperty('--widget-h',h+'px');el.style.setProperty('--widget-scale',s);el.style.setProperty('--widget-radius',r+'px');}});if(body){body.style.width=w+'px';body.style.height=h+'px';}if(d){d.style.borderRadius=r+'px';}if(bg){bg.style.background=bgRgba;}})();`
   ).catch(() => {});
 }
 
@@ -152,6 +155,24 @@ function createWindow() {
     try { fs.writeFileSync(WIDGET_CMD_FILE, cmd); } catch (_) {}
   }
 
+  function toggleThemeAndApply() {
+    const ini = getGuiIni();
+    if (!ini.Preferences) ini.Preferences = {};
+    const current = (ini.Preferences.Theme || 'light').toLowerCase();
+    const next = current === 'dark' ? 'light' : 'dark';
+    ini.Preferences.Theme = next;
+    const lines = [];
+    for (const [sec, kvs] of Object.entries(ini)) {
+      lines.push(`[${sec}]`);
+      for (const [k, v] of Object.entries(kvs)) lines.push(`${k}=${v}`);
+      lines.push('');
+    }
+    try { fs.writeFileSync(GUI_INI, lines.join('\n')); } catch (_) {}
+    lastAppliedPrefs = null;
+    const prefs = getPrefs();
+    if (win && !win.isDestroyed()) applyPrefsToWindow(win, prefs);
+  }
+
   let lastContextMenu = null;
   let overlayWins = [];
 
@@ -168,9 +189,12 @@ function createWindow() {
   }
 
   function showWidgetContextMenu(screenX, screenY) {
+    const isDark = (getGuiIni().Preferences || {}).Theme === 'dark';
     const menu = Menu.buildFromTemplate([
       { label: 'Open Dashboard', click: () => writeWidgetCmd('OpenDashboard') },
       { label: 'Preferences', click: () => writeWidgetCmd('Preferences') },
+      { type: 'separator' },
+      { label: isDark ? '切换浅色模式' : '切换深色模式', click: toggleThemeAndApply },
       { type: 'separator' },
       { label: 'Update check', click: () => writeWidgetCmd('UpdateCheck') },
       { label: 'Open source', click: () => writeWidgetCmd('OpenSource') },

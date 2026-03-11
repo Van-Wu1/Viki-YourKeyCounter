@@ -606,6 +606,10 @@ body {
 .prefs-row-checkbox label { width: auto; display: flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .prefs-row-checkbox input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; }
 .prefs-row label { width: 72px; font-size: 14px; color: #374151; }
+.prefs-row-theme .theme-toggle { display: flex; gap: 0; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+.theme-btn { padding: 8px 20px; border: none; background: #f3f4f6; color: #6b7280; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+.theme-btn:hover { background: #e5e7eb; }
+.theme-btn.active { background: #374151; color: #fff; font-weight: 500; }
 .prefs-row input[type="number"] { width: 80px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
 .prefs-row input[type="range"] { flex: 1; max-width: 160px; }
 .prefs-value { min-width: 28px; font-size: 14px; color: #6b7280; }

@@ -15,6 +15,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .pnpm-store/
+bun.lockb
 
 # ----- Node.js / Electron (widget) -----
 widget/node_modules/
@@ -54,6 +55,7 @@ ehthumbs.db
 .vscode/
 .idea/
 .cursor/
+.cursor/plans/
 *.sublime-project
 *.sublime-workspace
 agent-transcripts/

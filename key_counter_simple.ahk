@@ -67,6 +67,7 @@ A_TrayMenu.Default := "Open Dashboard"
 A_TrayMenu.Add("Preferences", Preferences)
 A_TrayMenu.Add("Show Window", ShowGui)
 A_TrayMenu.Add("Hide Window", HideGui)
+A_TrayMenu.Add("切换主题", ToggleTheme)
 A_TrayMenu.Add()
 A_TrayMenu.Add("Update check", UpdateCheck)
 A_TrayMenu.Add("Open source", OpenSource)
@@ -87,6 +88,7 @@ CheckWidgetCommand() {
     switch widgetCmd {
         case "OpenDashboard": OpenDashboard()
         case "Preferences": Preferences()
+        case "ToggleTheme": ToggleTheme()
         case "UpdateCheck": UpdateCheck()
         case "OpenSource": OpenSource()
         case "Reset": Reset()
@@ -462,6 +464,15 @@ HideGui(*) {
         IniWrite("1", "gui.ini", "Floating", "Visible")
         isGuiShown := 1
     }
+}
+
+;-------------------------
+; 主题切换
+;-------------------------
+ToggleTheme(*) {
+    current := IniRead("gui.ini", "Preferences", "Theme", "light")
+    next := (current = "dark") ? "light" : "dark"
+    IniWrite(next, "gui.ini", "Preferences", "Theme")
 }
 
 ;-------------------------
