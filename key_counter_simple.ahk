@@ -60,8 +60,9 @@ SaveDaySnapshot()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("Open Dashboard", OpenDashboard)
 SetTimer(CheckWidgetCommand, 500)
+SetTimer(CheckHealthCommand, 500)
 SetTimer(FlushSave, 2000)
-SetTimer(CheckHealthReminders, 60000)
+SetTimer(CheckHealthReminders, 30000)
 A_TrayMenu.Default := "Open Dashboard"
 A_TrayMenu.Add("Preferences", Preferences)
 A_TrayMenu.Add("Show Window", ShowGui)
@@ -89,6 +90,29 @@ CheckWidgetCommand() {
         case "UpdateCheck": UpdateCheck()
         case "OpenSource": OpenSource()
         case "Reset": Reset()
+    }
+}
+
+;-------------------------
+; 健康命令（Widget 长按确认）
+;-------------------------
+CheckHealthCommand() {
+    global
+    cmdFile := A_ScriptDir "\keycounter_health_cmd.txt"
+    if !FileExist(cmdFile)
+        return
+    cmd := Trim(FileRead(cmdFile))
+    FileDelete(cmdFile)
+    switch cmd {
+        case "WaterAck":
+            global lastWaterReminderTime := A_Now
+            IniWrite("0", "health_status.ini", "Status", "Water")
+        case "SittingRestStart":
+            IniWrite("2", "health_status.ini", "Status", "Sitting")
+        case "SittingRestEnd":
+            global continuousSessionStart := A_Now
+            global lastSittingReminderTime := 0
+            IniWrite("0", "health_status.ini", "Status", "Sitting")
     }
 }
 
@@ -295,14 +319,18 @@ CheckSittingReminder() {
     global
     if !FileExist("gui.ini")
         return
+    ; Sitting=2 表示用户已确认休息中，仅由长按绿灯结束
+    sittingState := IniRead("health_status.ini", "Status", "Sitting", "0")
+    if (sittingState = "2")
+        return
     enabled := IniRead("gui.ini", "Preferences", "SittingEnabled", "1")
     if (enabled != "1")
         return
-    sittingMins := Integer(IniRead("gui.ini", "Preferences", "SittingMinutes", "120"))
+    sittingMins := Integer(IniRead("gui.ini", "Preferences", "SittingMinutes", "60"))
     cooldownMin := Integer(IniRead("gui.ini", "Preferences", "ReminderCooldown", "1"))
     now := A_Now
     idleMins := A_TimeIdlePhysical / 60000
-    if (idleMins >= 5) {
+    if (idleMins >= 3) {
         continuousSessionStart := now
         IniWrite("0", "health_status.ini", "Status", "Sitting")
         return
@@ -376,10 +404,8 @@ CheckWaterReminder() {
         return
     }
     diffMins := -DateDiff(lastWaterReminderTime, now, "Minutes")
-    if (diffMins < waterMins) {
-        IniWrite("0", "health_status.ini", "Status", "Water")
+    if (diffMins < waterMins)
         return
-    }
     diffCooldown := -DateDiff(lastWaterReminderTime, now, "Minutes")
     if (diffCooldown < cooldownMin)
         return
@@ -599,6 +625,7 @@ OpenSource(*) {
 Reset(*) {
     global
     SetTimer(CheckWidgetCommand, 0)
+    SetTimer(CheckHealthCommand, 0)
     SetTimer(FlushSave, 0)
     SetTimer(CheckHealthReminders, 0)
     FlushSave()
@@ -619,6 +646,7 @@ Reset(*) {
 ExitAppLabel(*) {
     global
     SetTimer(CheckWidgetCommand, 0)
+    SetTimer(CheckHealthCommand, 0)
     SetTimer(FlushSave, 0)
     SetTimer(CheckHealthReminders, 0)
     FlushSave()

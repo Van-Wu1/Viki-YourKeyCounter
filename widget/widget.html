@@ -29,10 +29,18 @@
 
     <!-- 底部宽幅灯带（健康提醒：久坐/腱鞘炎/喝水）-->
     <div class="health-dots light-bar-container" id="health-dots">
-      <div class="light-segment dot-sitting" id="dot-sitting" title="久坐提醒"></div>
-      <div class="light-segment dot-tenosynovitis" id="dot-tenosynovitis" title="腱鞘炎提醒"></div>
-      <div class="light-segment dot-water" id="dot-water" title="喝水提醒"></div>
+      <div class="light-segment dot-sitting" id="dot-sitting" data-action="sitting"></div>
+      <div class="light-segment dot-tenosynovitis" id="dot-tenosynovitis"></div>
+      <div class="light-segment dot-water" id="dot-water" data-action="water"></div>
     </div>
+    <!-- 长按进度环（跟随鼠标）-->
+    <div id="progress-ring-overlay" class="progress-ring-overlay" aria-hidden="true">
+      <svg class="progress-ring-svg" viewBox="0 0 24 24">
+        <circle class="progress-ring-circle" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </div>
+    <!-- 蒸发粒子容器 -->
+    <div id="evaporate-container" class="evaporate-container"></div>
   </div>
   <script src="widget.js"></script>
 </body>

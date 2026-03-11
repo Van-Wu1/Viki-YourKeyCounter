@@ -60,7 +60,7 @@ function getPrefs() {
     transparency: (() => { const v = parseInt(p.Transparency, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.transparency : v; })(),
     borderRadius: (() => { const v = parseInt(p.BorderRadius, 10); return (isNaN(v) || v < 0) ? DEFAULT_PREFS.borderRadius : v; })(),
     sittingEnabled: p.SittingEnabled !== '0',
-    sittingMinutes: parseInt(p.SittingMinutes, 10) || 120,
+    sittingMinutes: parseInt(p.SittingMinutes, 10) || 60,
     tenosynovitisEnabled: p.TenosynovitisEnabled !== '0',
     keyboardThreshold: parseInt(p.KeyboardThreshold, 10) || 0,
     mouseThreshold: parseInt(p.MouseThreshold, 10) || 0,
@@ -99,8 +99,11 @@ function getTodayCounts() {
 function getHealthStatus() {
   const ini = parseIni(HEALTH_STATUS_INI);
   const s = ini.Status || {};
+  const sitting = String(s.Sitting || '0');
   return {
-    sitting: s.Sitting === '1',
+    sitting,
+    sittingRed: sitting === '1',
+    sittingGreen: sitting === '2',
     tenosynovitis: s.Tenosynovitis === '1',
     water: s.Water === '1'
   };
@@ -238,11 +241,12 @@ function createWindow() {
       const health = getHealthStatus();
       const healthStr = JSON.stringify(health);
       if (countsStr !== lastCountsStr || healthStr !== lastHealthStatusStr) {
+        const healthChanged = healthStr !== lastHealthStatusStr;
         lastCountsStr = countsStr;
         lastHealthStatusStr = healthStr;
         win.webContents.send('widget-counts', counts);
         win.webContents.executeJavaScript(
-          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();var s=document.getElementById('dot-sitting');var t=document.getElementById('dot-tenosynovitis');var w=document.getElementById('dot-water');var any=${health.sitting||health.tenosynovitis||health.water};var parent=document.querySelector('.health-dots');if(parent){if(any)parent.classList.add('has-active');else parent.classList.remove('has-active');}if(s){if(${health.sitting})s.classList.add('active');else s.classList.remove('active');}if(t){if(${health.tenosynovitis})t.classList.add('active');else t.classList.remove('active');}if(w){if(${health.water})w.classList.add('active');else w.classList.remove('active');}})();`
+          `(function(){var k=${counts.keyboard},m=${counts.mouse};var ke=document.getElementById('keys-value');var me=document.getElementById('mouse-value');if(ke)ke.textContent=k.toLocaleString();if(me)me.textContent=m.toLocaleString();var s=document.getElementById('dot-sitting');var t=document.getElementById('dot-tenosynovitis');var w=document.getElementById('dot-water');var sittingRed=${health.sittingRed};var sittingGreen=${health.sittingGreen};var any=sittingRed||sittingGreen||${health.tenosynovitis}||${health.water};var parent=document.querySelector('.health-dots');if(parent){if(any)parent.classList.add('has-active');else parent.classList.remove('has-active');}if(s){if(sittingRed||sittingGreen){s.classList.add('active');if(sittingGreen)s.classList.add('resting');else s.classList.remove('resting');if(sittingRed)s.classList.add('blink');else s.classList.remove('blink');}else{s.classList.remove('active','resting','blink');}}if(t){if(${health.tenosynovitis}){t.classList.add('active','blink');}else{t.classList.remove('active','blink');}}if(w){if(${health.water}){w.classList.add('active','blink');}else{w.classList.remove('active','blink');}}if(parent&&${healthChanged}){var blinkers=parent.querySelectorAll('.blink');if(blinkers.length){blinkers.forEach(function(el){el.style.animation='none';});parent.offsetHeight;blinkers.forEach(function(el){el.style.animation='';});}}})();`
         ).catch(() => {});
       }
       const ini = getGuiIni();
@@ -275,6 +279,15 @@ function createWindow() {
       lines.push('');
     }
     fs.writeFileSync(GUI_INI, lines.join('\n'));
+    // 多显示器 DPI 不同时，移动后强制重设尺寸以修复灯带被裁剪
+    lastAppliedPrefs = null;
+    const prefs = getPrefs();
+    setTimeout(() => {
+      if (win && !win.isDestroyed()) {
+        win.setSize(prefs.width, prefs.height);
+        applyPrefsToWindow(win, prefs);
+      }
+    }, 50);
   });
 
   if (initialVisible === '0') win.hide();

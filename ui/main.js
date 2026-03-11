@@ -581,7 +581,7 @@
     const br = parseInt(p.BorderRadius, 10);
     const borderRadius = (isNaN(br) || br < 0) ? 14 : br;
     const sittingEnabled = p.SittingEnabled !== '0';
-    const sittingMinutes = parseInt(p.SittingMinutes, 10) || 120;
+    const sittingMinutes = parseInt(p.SittingMinutes, 10) || 60;
     const tenosynovitisEnabled = p.TenosynovitisEnabled !== '0';
     const keyboardThreshold = parseInt(p.KeyboardThreshold, 10) || 50000;
     const mouseThreshold = parseInt(p.MouseThreshold, 10) || 10000;
@@ -627,7 +627,7 @@
     const br = parseInt(document.getElementById('prefBorderRadius').value, 10);
     const borderRadius = (isNaN(br) || br < 0) ? 14 : br;
     const sittingEnabled = document.getElementById('prefSittingEnabled').checked ? '1' : '0';
-    const sittingMinutes = parseInt(document.getElementById('prefSittingMinutes').value, 10) || 120;
+    const sittingMinutes = parseInt(document.getElementById('prefSittingMinutes').value, 10) || 60;
     const tenosynovitisEnabled = document.getElementById('prefTenosynovitisEnabled').checked ? '1' : '0';
     const keyboardThreshold = parseInt(document.getElementById('prefKeyboardThreshold').value, 10) || 0;
     const mouseThreshold = parseInt(document.getElementById('prefMouseThreshold').value, 10) || 0;

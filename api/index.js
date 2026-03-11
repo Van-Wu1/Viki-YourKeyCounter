@@ -150,7 +150,7 @@ function buildDashboardData() {
         Transparency: prefs.Transparency || '94',
         BorderRadius: prefs.BorderRadius || '14',
         SittingEnabled: prefs.SittingEnabled || '1',
-        SittingMinutes: prefs.SittingMinutes || '120',
+        SittingMinutes: prefs.SittingMinutes || '60',
         TenosynovitisEnabled: (prefs.TenosynovitisEnabled !== undefined && prefs.TenosynovitisEnabled !== '') ? prefs.TenosynovitisEnabled : (prefs.ReminderEnabled || '1'),
         KeyboardThreshold: prefs.KeyboardThreshold || '50000',
         MouseThreshold: prefs.MouseThreshold || '10000',
