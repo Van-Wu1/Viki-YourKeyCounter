@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@600&display=swap');
 
-/* 基准 200×45（30%），--widget-scale/--widget-radius 由 main.js 根据设置注入 */
+/* 基准 270×45（30%），--widget-scale/--widget-radius 由 main.js 根据设置注入 */
 :root {
-  --widget-w: 200px;
+  --widget-w: 230px;
   --widget-h: 45px;
   --widget-scale: 1;
   --widget-radius: 14px;
@@ -86,7 +86,7 @@ html, body {
 .stat-box {
   display: flex;
   align-items: center;
-  gap: calc(5px * var(--widget-scale));
+  gap: calc(4px * var(--widget-scale));
 }
 
 .stat-icon {
@@ -101,6 +101,12 @@ html, body {
   font-weight: 600;
   color: var(--widget-num);
   letter-spacing: -0.5px;
+  /* 数字预留固定宽度，左侧紧跟图标，避免位数变化抖动 */
+  min-width: 7ch;
+  display: flex;
+  align-items: center;
+  justify-content: center;     /* 数字在容器内垂直/水平居中 */
+  /* background: rgba(255, 0, 0, 0.3); 调试：可视化数字容器区域 */
 }
 
 /* 底部灯带 - 高度随 scale 缩放，5px 基准 */
