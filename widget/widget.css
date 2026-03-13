@@ -101,12 +101,11 @@ html, body {
   font-weight: 600;
   color: var(--widget-num);
   letter-spacing: -0.5px;
-  /* 数字预留固定宽度，左侧紧跟图标，避免位数变化抖动 */
-  min-width: 7ch;
-  display: flex;
+  /* 固定数字容器宽度，避免位数变化抖动 */
+  width: 7ch;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;     /* 数字在容器内垂直/水平居中 */
-  /* background: rgba(255, 0, 0, 0.3); 调试：可视化数字容器区域 */
+  justify-content: center;
 }
 
 /* 底部灯带 - 高度随 scale 缩放，5px 基准 */
