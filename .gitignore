@@ -65,5 +65,9 @@ agent-transcripts/
 .env.local
 .env.*.local
 
+# ----- 云同步本地状态（不应提交） -----
+cloud_session.json
+device_id.ini
+
 # ----- 可选：若打赏二维码为个人收款码，可取消下行注释 -----
 # public/moneycome.jpg

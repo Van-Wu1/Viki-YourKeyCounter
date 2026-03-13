@@ -11,6 +11,8 @@ try A_TrayMenu.Tip := "KeyCounter " scriptVersion
 ; 配置
 ;-------------------------
 global StatsBoundaryHour := 4
+global isLoggedIn := 0
+global loggedInEmail := ""
 
 ;-------------------------
 ; 全局变量
@@ -46,34 +48,183 @@ global dashboardHash := ""
 global perKeyCache := Map()
 
 ;-------------------------
-; 初始化
+; 启动与登录流程
 ;-------------------------
-EnsureDataDir()
-CalcDayIdStartup()
-LoadState()
-ResetHealthStatusOnStartup()
-InitGui()
-SaveState()
-SaveDaySnapshot()
+StartUp() {
+    global
+    SetWorkingDir A_ScriptDir
+    StartApi()
+    ; 尝试用本地 session 自动登录
+    if (TryAutoLogin()) {
+        ShowWelcome()
+        StartAfterLogin()
+        return
+    }
+    ; 弹出登录窗口
+    if (!ShowLoginGui()) {
+        ExitApp()
+    }
+    ShowWelcome()
+    StartAfterLogin()
+}
 
-; 托盘菜单
-A_TrayMenu.Delete()
-A_TrayMenu.Add("Open Dashboard", OpenDashboard)
-SetTimer(CheckWidgetCommand, 500)
-SetTimer(CheckHealthCommand, 500)
-SetTimer(FlushSave, 2000)
-SetTimer(CheckHealthReminders, 30000)
-A_TrayMenu.Default := "Open Dashboard"
-A_TrayMenu.Add("Preferences", Preferences)
-A_TrayMenu.Add("Show Window", ShowGui)
-A_TrayMenu.Add("Hide Window", HideGui)
-A_TrayMenu.Add("切换主题", ToggleTheme)
-A_TrayMenu.Add()
-A_TrayMenu.Add("Update check", UpdateCheck)
-A_TrayMenu.Add("Open source", OpenSource)
-A_TrayMenu.Add()
-A_TrayMenu.Add("Reset", Reset)
-A_TrayMenu.Add("Exit", ExitAppLabel)
+StartApi() {
+    global apiPid
+    apiScript := A_ScriptDir "\api\index.js"
+    if (apiPid && apiPid != 0) {
+        try ProcessClose(apiPid)
+        apiPid := 0
+        Sleep(500)
+    }
+    try Run('node "' apiScript '"', A_ScriptDir, "Hide", &apiPid)
+    Sleep(2000)
+}
+
+TryAutoLogin() {
+    ; 调用 /api/cloud/bootstrap 然后 /api/cloud/me
+    CloudHttp("POST", "/api/cloud/bootstrap")
+    resp := CloudHttp("GET", "/api/cloud/me")
+    if (resp["Status"] != 200)
+        return false
+    if !RegExMatch(resp["Text"], '"ok"\s*:\s*true')
+        return false
+    email := ""
+    if RegExMatch(resp["Text"], '"email"\s*:\s*"([^"]+)"', &m)
+        email := m[1]
+    if (email = "")
+        return false
+    global loggedInEmail, isLoggedIn
+    loggedInEmail := email
+    isLoggedIn := 1
+    return true
+}
+
+ShowLoginGui() {
+    global loggedInEmail, isLoggedIn
+    isLoggedIn := 0
+    loggedInEmail := ""
+    loginGui := Gui("+AlwaysOnTop +Caption", "KeyCounter 登录")
+    loginGui.MarginX := 16
+    loginGui.MarginY := 16
+    loginGui.AddText(, "登录后开始统计（Free：仅本地 90 天 · Pro：多设备云同步）")
+    loginGui.AddText("xm ym+10", "邮箱：")
+    emailEdit := loginGui.AddEdit("w260 vEmail")
+    loginGui.AddText("xm y+8", "密码：")
+    pwdEdit := loginGui.AddEdit("w260 Password vPassword")
+    hintText := loginGui.AddText("xm y+6 cGray", "")
+    btnLogin := loginGui.AddButton("xm y+10 w100", "登录")
+    btnCancel := loginGui.AddButton("x+8 w80", "退出")
+    loggedIn := false
+
+    btnLogin.OnEvent("Click", LoginSubmit)
+    btnCancel.OnEvent("Click", LoginClose)
+    loginGui.OnEvent("Close", LoginClose)
+
+    LoginSubmit(*) {
+        global loggedInEmail, isLoggedIn
+        email := emailEdit.Value
+        password := pwdEdit.Value
+        if (email = "" || password = "") {
+            hintText.Text := "请填写邮箱和密码。"
+            return
+        }
+        btnLogin.Enabled := false
+        hintText.Text := "登录中..."
+        body := '{'
+            . '"email":"' email '",'
+            . '"password":"' password '",'
+            . '"deviceName":"This Device"'
+            . '}'
+        resp := CloudHttp("POST", "/api/cloud/login", body)
+        if (resp["Status"] != 200 || !RegExMatch(resp["Text"], '"ok"\s*:\s*true')) {
+            hintText.Text := "登录失败，请检查邮箱或密码。"
+            btnLogin.Enabled := true
+            return
+        }
+        emailFound := ""
+        if RegExMatch(resp["Text"], '"email"\s*:\s*"([^"]+)"', &m2)
+            emailFound := m2[1]
+        if (emailFound = "")
+            emailFound := email
+        loggedInEmail := emailFound
+        isLoggedIn := 1
+        loggedIn := true
+        loginGui.Destroy()
+    }
+
+    LoginClose(*) {
+        loginGui.Destroy()
+    }
+
+    loginGui.Show()
+    ; 阻塞等待窗口关闭
+    while WinExist("KeyCounter 登录") {
+        Sleep(100)
+    }
+    return loggedIn
+}
+
+ShowWelcome() {
+    global loggedInEmail
+    if (loggedInEmail = "")
+        return
+    welcomeGui := Gui("+AlwaysOnTop +ToolWindow -Caption", "")
+    welcomeGui.MarginX := 16
+    welcomeGui.MarginY := 12
+    welcomeGui.AddText("cBlack", "登录成功")
+    welcomeGui.AddText("cGray y+4", "欢迎 " loggedInEmail " 用户")
+    welcomeGui.Show("AutoSize Center")
+    SetTimer(() => welcomeGui.Destroy(), -3000)
+}
+
+CloudHttp(method, path, body := "") {
+    url := "http://localhost:3000" path
+    http := ComObject("WinHttp.WinHttpRequest.5.1")
+    http.Open(method, url, false)
+    if (method = "POST" || method = "PUT")
+        http.SetRequestHeader("Content-Type", "application/json")
+    try {
+        http.Send(body)
+        status := http.Status
+        text := http.ResponseText
+    } catch {
+        status := 0
+        text := ""
+    }
+    return Map("Status", status, "Text", text)
+}
+
+StartAfterLogin() {
+    global
+    EnsureDataDir()
+    CalcDayIdStartup()
+    LoadState()
+    ResetHealthStatusOnStartup()
+    InitGui()
+    SaveState()
+    SaveDaySnapshot()
+
+    ; 托盘菜单与定时器
+    A_TrayMenu.Delete()
+    A_TrayMenu.Add("Open Dashboard", OpenDashboard)
+    SetTimer(CheckWidgetCommand, 500)
+    SetTimer(CheckHealthCommand, 500)
+    SetTimer(FlushSave, 2000)
+    SetTimer(CheckHealthReminders, 30000)
+    A_TrayMenu.Default := "Open Dashboard"
+    A_TrayMenu.Add("Preferences", Preferences)
+    A_TrayMenu.Add("Show Window", ShowGui)
+    A_TrayMenu.Add("Hide Window", HideGui)
+    A_TrayMenu.Add("切换主题", ToggleTheme)
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Update check", UpdateCheck)
+    A_TrayMenu.Add("Open source", OpenSource)
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Reset", Reset)
+    A_TrayMenu.Add("Exit", ExitAppLabel)
+}
+
+StartUp()
 
 ;-------------------------
 ; 悬浮框右键菜单命令
@@ -119,8 +270,9 @@ CheckHealthCommand() {
 }
 
 ;-------------------------
-; 鼠标事件
+; 鼠标事件（仅登录后启用）
 ;-------------------------
+#HotIf isLoggedIn
 ~LButton:: {
     global lastMouseEvent := "MouseLeft"
     HandleEvent()
@@ -214,6 +366,7 @@ CheckHealthCommand() {
 ~*F10:: HandleKeyEvent()
 ~*F11:: HandleKeyEvent()
 ~*F12:: HandleKeyEvent()
+#HotIf
 
 ;-------------------------
 ; 事件统一处理

@@ -33,10 +33,15 @@
    npm install
    ```
 
-### 第三步：启动软件
+### 第三步：登录并启动软件
 
 1. 双击项目里的 `key_counter_simple.ahk`
-2. 右下角托盘会出现图标，桌面上会出现一个悬浮框，显示今天的按键和鼠标次数
+2. 会先弹出一个登录窗口（使用云账号登录）  
+   - **Free 用户**：仅支持本地保存最近 90 天的统计，不做云同步  
+   - **Pro 用户**：支持多设备 + 云端同步（仍然会在本地保留数据）
+3. 登录成功后会短暂显示“欢迎 xxx 用户”的提示窗口，然后：  
+   - 右下角托盘出现 KeyCounter 图标  
+   - 桌面上出现悬浮框，实时显示今天的按键和鼠标次数（KEYS / MOUSE）
 
 ### 第四步：日常使用
 
@@ -45,7 +50,8 @@
 | 看详细统计 | 右键托盘图标 → 选 **Open Dashboard** |
 | 改设置 | 右键托盘图标 → 选 **Preferences**，或从 Dashboard 左侧点 **Preferences** |
 | 隐藏/显示悬浮框 | 右键托盘 → **Hide Window** / **Show Window**，或按 **Ctrl+Alt+H** |
-| 退出 | 右键托盘 → **Exit** |
+| 手动上传今日数据（Pro） | Dashboard → **Preferences** → 云同步区域 → **上传今日数据** |
+| 退出 | 右键托盘 → **Exit**（同时关闭悬浮框与本地 API） |
 
 ### 第五步：设置健康提醒（可选）
 
@@ -134,8 +140,26 @@ Viki-YourKeyCounter/
 ├── data/                    # 每日统计（自动生成）
 ├── count.ini                # 累计数据（自动生成）
 ├── gui.ini                  # 悬浮框配置（自动生成）
-└── health_status.ini        # 健康提醒状态（自动生成）
+├── health_status.ini        # 健康提醒状态（自动生成）
+├── device_id.ini            # 本机设备标识（自动生成，已 .gitignore）
+└── cloud_session.json       # 云登录会话（自动生成，已 .gitignore）
 ```
+
+### 云同步（实验性）
+
+- 项目内置了一个**本地 API + Supabase** 的云同步能力，支持：
+  - 账号登录（Auth）
+  - 多设备识别与命名
+  - 手动上传“当日统计 + PerKey”到云端（写入 `daily_rollups` 表）
+- 如果你只是**本地使用 / 不想接云**：
+  - 可以在自己的分支中关闭登录门禁逻辑（不启动云相关接口），仅保留本地统计逻辑。
+- 如果你想自建云同步：
+  - 参考 `files/supabase-schema.sql` 创建表结构；
+  - 在根目录 `.env` 中配置：
+    - `SUPABASE_URL`
+    - `SUPABASE_ANON_KEY`
+    - `SUPABASE_SERVICE_ROLE_KEY`
+  - 本地 API 会自动加载这些环境变量并启用云端相关接口。
 
 ### 打包
 

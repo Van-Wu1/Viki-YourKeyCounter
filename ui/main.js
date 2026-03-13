@@ -9,9 +9,19 @@
   let keyChartInstance = null;
   let mouseChartInstance = null;
   let trendChartInstance = null;
+  let cloudState = {
+    user: null,
+    plan: null,
+    devices: [],
+    localDeviceKey: null
+  };
 
   function getData() {
     return window.__KEYCOUNTER_DATA__ || {};
+  }
+
+  function setCloudState(partial) {
+    cloudState = { ...cloudState, ...partial };
   }
 
   async function loadData() {
@@ -33,6 +43,106 @@
       window.__KEYCOUNTER_GUI_INI__ = { Floating: {}, Preferences: {} };
       return false;
     }
+  }
+
+  function showLoginOverlay(show, hint) {
+    const overlay = document.getElementById('loginOverlay');
+    const hintEl = document.getElementById('loginHint');
+    if (!overlay) return;
+    overlay.style.display = show ? 'flex' : 'none';
+    if (hintEl) hintEl.textContent = hint || '';
+  }
+
+  async function cloudBootstrap() {
+    try {
+      await fetch('/api/cloud/bootstrap', { method: 'POST' });
+    } catch (_) {}
+  }
+
+  async function ensureLoggedInOrShowGate() {
+    await cloudBootstrap();
+    try {
+      const meRes = await fetch('/api/cloud/me');
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me && me.ok && me.user) {
+          setCloudState({ user: me.user, plan: me.plan || null });
+          showLoginOverlay(false);
+          return true;
+        }
+      }
+    } catch (_) {}
+    showLoginOverlay(true, '请先登录后开始统计。');
+    return false;
+  }
+
+  function initLoginGate() {
+    const btn = document.getElementById('loginSubmitBtn');
+    const emailEl = document.getElementById('loginEmail');
+    const pwdEl = document.getElementById('loginPassword');
+    const hintEl = document.getElementById('loginHint');
+    if (!btn || !emailEl || !pwdEl) return;
+    btn.onclick = async () => {
+      const email = emailEl.value.trim();
+      const password = pwdEl.value;
+      if (!email || !password) {
+        if (hintEl) hintEl.textContent = '请填写邮箱和密码。';
+        return;
+      }
+      btn.disabled = true;
+      const old = btn.textContent;
+      btn.textContent = '登录中...';
+      if (hintEl) hintEl.textContent = '';
+      try {
+        const res = await fetch('/api/cloud/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, deviceName: 'This Device' })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || res.statusText);
+        setCloudState({ user: json.user || null, plan: json.plan || null });
+        showLoginOverlay(false);
+        // 登录后再初始化页面数据
+        await initAfterLogin();
+      } catch (e) {
+        if (hintEl) hintEl.textContent = '登录失败：请检查邮箱或密码。';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = old;
+      }
+    };
+  }
+
+  function renderDeviceViewButtons() {
+    const row = document.getElementById('deviceViewRow');
+    const wrap = document.getElementById('deviceViewBtns');
+    if (!row || !wrap) return;
+    const plan = cloudState.plan;
+    if (!plan || plan.plan !== 'pro') {
+      row.style.display = 'none';
+      return;
+    }
+    row.style.display = 'block';
+    // buttons: All + current device first + rest
+    const devs = [...(cloudState.devices || [])];
+    devs.sort((a, b) => (b.isCurrentDevice ? 1 : 0) - (a.isCurrentDevice ? 1 : 0));
+    const buttons = [{ id: 'all', label: '所有设备' }, ...devs.map((d) => ({ id: d.id, label: d.displayName || d.id }))];
+    const activeId = cloudState.activeViewId || 'all';
+    wrap.innerHTML = '';
+    // Always render 6 slots width via CSS grid; fewer buttons just fewer items.
+    buttons.forEach((b) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'device-view-btn' + (activeId === b.id ? ' active' : '');
+      el.textContent = b.label;
+      el.onclick = async () => {
+        setCloudState({ activeViewId: b.id });
+        renderDeviceViewButtons();
+        // TODO: 下一步会接云端 data 渲染（此处先占位）
+      };
+      wrap.appendChild(el);
+    });
   }
 
   function formatDayId(dayId) {
@@ -628,6 +738,239 @@
       };
     });
     if (spEl && spVal) spEl.oninput = () => { spVal.textContent = spEl.value; };
+
+    initCloudPrefs();
+  }
+
+  async function fetchCloudMeAndDevices() {
+    try {
+      const meRes = await fetch('/api/cloud/me');
+      if (!meRes.ok) {
+        if (meRes.status === 401) {
+          setCloudState({ user: null, plan: null, devices: [] });
+          return;
+        }
+        throw new Error('me ' + meRes.statusText);
+      }
+      const me = await meRes.json();
+      if (!me.ok) {
+        setCloudState({ user: null, plan: null, devices: [] });
+        return;
+      }
+      setCloudState({ user: me.user || null, plan: me.plan || null, localDeviceKey: me.localDeviceKey || null });
+      if (!me.user) {
+        setCloudState({ devices: [] });
+        return;
+      }
+      const devRes = await fetch('/api/cloud/devices');
+      if (!devRes.ok) {
+        if (devRes.status === 401) return;
+        throw new Error('devices ' + devRes.statusText);
+      }
+      const devJson = await devRes.json();
+      if (devJson.ok) {
+        setCloudState({ devices: devJson.devices || [] });
+      }
+    } catch (e) {
+      console.warn('fetchCloudMeAndDevices failed:', e);
+    }
+  }
+
+  function renderCloudPrefs() {
+    const statusEl = document.getElementById('cloudStatusText');
+    const accountRow = document.getElementById('cloudAccountInfo');
+    const planTextEl = document.getElementById('cloudPlanText');
+    const planHintEl = document.getElementById('cloudPlanHint');
+    const devicesRow = document.getElementById('cloudDevicesRow');
+    const devicesList = document.getElementById('cloudDevicesList');
+    const syncRow = document.getElementById('cloudSyncRow');
+    const emailInput = document.getElementById('cloudEmail');
+    const pwdInput = document.getElementById('cloudPassword');
+    const sidebarUser = document.getElementById('sidebarUserInfo');
+    if (!statusEl || !accountRow || !planTextEl || !planHintEl || !devicesRow || !devicesList) return;
+
+    if (!cloudState.user) {
+      statusEl.textContent = '未登录';
+      accountRow.style.display = 'none';
+      devicesRow.style.display = 'none';
+      if (syncRow) syncRow.style.display = 'none';
+      if (sidebarUser) sidebarUser.textContent = '';
+      return;
+    }
+
+    statusEl.textContent = '已登录：' + (cloudState.user.email || '');
+    accountRow.style.display = 'flex';
+
+    const plan = cloudState.plan || { plan: 'free', deviceLimit: 1, retentionDays: 90 };
+    const planLabel = plan.plan === 'pro' ? 'Pro 计划' : 'Free 计划';
+    const deviceLimit = plan.deviceLimit ?? 1;
+    const retentionDays = plan.retentionDays;
+    planTextEl.textContent = `${planLabel} · 设备上限：${deviceLimit} 台 · 保留天数：${retentionDays ?? '不限'}`;
+    if (plan.plan === 'free') {
+      planHintEl.textContent = 'Free：仅支持 1 台设备，云端仅保留最近 90 天的数据。';
+    } else {
+      planHintEl.textContent = 'Pro：最多 5 台设备，当前不限制数据保留天数。';
+    }
+
+    devicesRow.style.display = 'flex';
+    if (syncRow) syncRow.style.display = 'flex';
+    devicesList.innerHTML = '';
+    const devs = cloudState.devices || [];
+    if (!devs.length) {
+      const li = document.createElement('li');
+      li.textContent = '暂无设备记录。';
+      devicesList.appendChild(li);
+    } else {
+      devs.forEach((d) => {
+        const li = document.createElement('li');
+        li.className = 'prefs-cloud-device-item';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = d.displayName || '';
+        nameInput.className = 'prefs-cloud-device-name';
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'prefs-cloud-device-meta';
+        const tags = [];
+        if (d.isCurrentDevice) tags.push('本机');
+        if (d.disabled) tags.push('已禁用');
+        if (tags.length) metaSpan.textContent = `（${tags.join(' · ')}）`;
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.textContent = '重命名';
+        saveBtn.onclick = async () => {
+          const newName = nameInput.value.trim();
+          if (!newName) {
+            alert('设备名称不能为空');
+            return;
+          }
+          saveBtn.disabled = true;
+          saveBtn.textContent = '保存中...';
+          try {
+            const res = await fetch('/api/cloud/devices/rename', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deviceId: d.id, displayName: newName })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const json = await res.json();
+            if (!json.ok) throw new Error(json.error || 'rename_failed');
+            await fetchCloudMeAndDevices();
+            renderCloudPrefs();
+          } catch (e) {
+            console.error('rename device failed:', e);
+            alert('重命名失败：' + (e.message || '请重试'));
+          } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '重命名';
+          }
+        };
+        li.appendChild(nameInput);
+        li.appendChild(saveBtn);
+        li.appendChild(metaSpan);
+        devicesList.appendChild(li);
+      });
+    }
+
+    if (emailInput && !emailInput.value && cloudState.user.email) {
+      emailInput.value = cloudState.user.email;
+    }
+    if (pwdInput) pwdInput.value = '';
+
+    if (sidebarUser) {
+      const planSuffix = plan.plan || 'free';
+      sidebarUser.textContent = (cloudState.user.email || '') + ' · ' + planSuffix;
+    }
+  }
+
+  function initCloudPrefs() {
+    const loginBtn = document.getElementById('cloudLoginBtn');
+    const emailInput = document.getElementById('cloudEmail');
+    const pwdInput = document.getElementById('cloudPassword');
+    const statusEl = document.getElementById('cloudStatusText');
+    const uploadBtn = document.getElementById('cloudUploadTodayBtn');
+    const uploadStatus = document.getElementById('cloudUploadTodayStatus');
+    const logoutBtn = document.getElementById('cloudLogoutBtn');
+    if (!loginBtn || !emailInput || !pwdInput || !statusEl) return;
+
+    loginBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const password = pwdInput.value;
+      if (!email || !password) {
+        alert('请填写邮箱和密码');
+        return;
+      }
+      loginBtn.disabled = true;
+      loginBtn.textContent = '登录中...';
+      statusEl.textContent = '';
+      try {
+        const res = await fetch('/api/cloud/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, deviceName: '下班快乐机' })
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || res.statusText);
+        }
+        setCloudState({
+          user: json.user || null,
+          plan: json.plan || null,
+          localDeviceKey: json.localDeviceKey || null
+        });
+        if (json.device && json.device.error === 'device_limit_exceeded') {
+          alert('当前计划仅支持 1 台设备，已达到上限。如需在多台设备同步，请升级到 Pro。');
+        }
+        await fetchCloudMeAndDevices();
+        renderCloudPrefs();
+      } catch (e) {
+        console.error('cloud login failed:', e);
+        alert('登录失败：' + (e.message || '请检查邮箱和密码'));
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登录云账号';
+      }
+    };
+
+    if (uploadBtn && uploadStatus) {
+      uploadBtn.onclick = async () => {
+        uploadBtn.disabled = true;
+        const oldText = uploadBtn.textContent;
+        uploadBtn.textContent = '上传中...';
+        uploadStatus.textContent = '';
+        try {
+          const res = await fetch('/api/cloud/sync/uploadToday', { method: 'POST' });
+          const json = await res.json();
+          if (!res.ok || !json.ok) {
+            throw new Error(json.error || res.statusText);
+          }
+          uploadStatus.textContent = `已上传：Keys ${json.uploaded.keys.toLocaleString()} · Mouse ${(json.uploaded.mouseLeft + json.uploaded.mouseRight + json.uploaded.wheelUp + json.uploaded.wheelDown).toLocaleString()} · PerKey ${json.uploaded.perKeyCount}`;
+        } catch (e) {
+          console.error('uploadToday failed:', e);
+          uploadStatus.textContent = '上传失败：' + (e.message || '请重试');
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = oldText;
+        }
+      };
+    }
+
+    if (logoutBtn) {
+      logoutBtn.onclick = async () => {
+        try {
+          await fetch('/api/cloud/logout', { method: 'POST' });
+          setCloudState({ user: null, plan: null, devices: [] });
+          renderCloudPrefs();
+          showLoginOverlay(true, '已退出登录，请重新登录以继续使用。');
+        } catch (e) {
+          console.error('logout failed:', e);
+        }
+      };
+    }
+
+    // 进入 Preferences 页面时尝试加载一次 cloud 状态
+    fetchCloudMeAndDevices().then(() => {
+      renderCloudPrefs();
+    });
   }
 
   async function savePrefs() {
@@ -716,7 +1059,14 @@
   }
 
   async function init() {
-    // 统一通过 fetch 加载，避免 data.js 与 Preferences 的 API/fetch 冲突
+    initLoginGate();
+    const loggedIn = await ensureLoggedInOrShowGate();
+    if (!loggedIn) return;
+    await initAfterLogin();
+  }
+
+  async function initAfterLogin() {
+    // 登录后再加载数据与初始化 UI
     const headerEl = document.getElementById('headerDate');
     if (headerEl) headerEl.textContent = '加载中...';
     const ok = await loadData();
@@ -726,6 +1076,10 @@
     render();
     initNav();
     maybeOpenPrefs();
+    // 刷新 cloud 状态（devices/plan）
+    await fetchCloudMeAndDevices();
+    renderCloudPrefs();
+    renderDeviceViewButtons();
   }
 
   document.addEventListener('DOMContentLoaded', () => init());

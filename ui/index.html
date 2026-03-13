@@ -15,6 +15,7 @@
         <a href="#" class="nav-item active" data-page="dashboard">Dashboard</a>
         <a href="#" class="nav-item" data-page="preferences">Preferences</a>
       </nav>
+      <div class="sidebar-user" id="sidebarUserInfo"></div>
       <div class="sidebar-footer">
         <span class="sidebar-credit">KeyCounter © 2026 · Van_Wu1</span>
       </div>
@@ -36,6 +37,9 @@
       </header>
 
       <div id="page-dashboard" class="page">
+      <section class="device-view-row" id="deviceViewRow" style="display:none;">
+        <div class="device-view-btns" id="deviceViewBtns"></div>
+      </section>
       <section class="activity-section">
         <div class="activity-header">
           <div class="activity-title-block">
@@ -186,6 +190,48 @@
               <input type="number" id="prefReminderCooldown" min="1" max="60" value="1" />
               <span class="prefs-unit">分钟（各模块提醒后冷却）</span>
             </div>
+            <h4 class="prefs-section-title">云同步 / 账号（实验性）</h4>
+            <p class="prefs-placeholder">登录 Supabase 账号后，可以在多台设备之间同步统计数据。</p>
+            <div class="prefs-row">
+              <label for="cloudEmail">邮箱</label>
+              <input type="email" id="cloudEmail" placeholder="用于登录的邮箱" />
+            </div>
+            <div class="prefs-row">
+              <label for="cloudPassword">密码</label>
+              <input type="password" id="cloudPassword" placeholder="密码" />
+            </div>
+            <div class="prefs-row">
+              <button type="button" id="cloudLoginBtn">登录云账号</button>
+              <span class="prefs-hint" id="cloudStatusText"></span>
+            </div>
+            <div class="prefs-row" id="cloudAccountInfo" style="display:none;">
+              <label>当前计划</label>
+              <div class="prefs-cloud-account">
+                <div id="cloudPlanText"></div>
+                <div id="cloudPlanHint" class="prefs-cloud-hint"></div>
+              </div>
+            </div>
+            <div class="prefs-row" id="cloudDevicesRow" style="display:none;">
+              <label>设备列表</label>
+              <div class="prefs-cloud-devices">
+                <ul id="cloudDevicesList" class="prefs-cloud-device-list"></ul>
+                <div class="prefs-hint">可在此为设备改名（例如“下班快乐机”“牛马机”）。</div>
+              </div>
+            </div>
+            <div class="prefs-row" id="cloudSyncRow" style="display:none;">
+              <label>手动同步</label>
+              <div class="prefs-cloud-sync">
+                <button type="button" id="cloudUploadTodayBtn">上传今日数据</button>
+                <span class="prefs-hint" id="cloudUploadTodayStatus"></span>
+              </div>
+            </div>
+            <div class="prefs-row">
+              <label>账号</label>
+              <div class="prefs-cloud-sync">
+                <button type="button" id="cloudLogoutBtn">退出登录</button>
+                <span class="prefs-hint">退出后需重新登录才能继续统计与云同步。</span>
+              </div>
+            </div>
             <button type="button" class="prefs-save-btn" id="prefsSaveBtn">保存设置</button>
               </div>
             </div>
@@ -200,6 +246,20 @@
   </div>
 
   <div id="toast" class="toast" aria-live="polite"></div>
+  <div class="login-overlay" id="loginOverlay" style="display:none;">
+    <div class="login-card">
+      <div class="login-title">登录后开始统计</div>
+      <div class="login-subtitle">Free：仅本地保存 90 天 · Pro：多设备云同步</div>
+      <div class="login-form">
+        <label class="login-label">邮箱</label>
+        <input class="login-input" type="email" id="loginEmail" placeholder="邮箱" />
+        <label class="login-label">密码</label>
+        <input class="login-input" type="password" id="loginPassword" placeholder="密码" />
+        <button class="login-btn" type="button" id="loginSubmitBtn">登录</button>
+        <div class="login-hint" id="loginHint"></div>
+      </div>
+    </div>
+  </div>
   <script src="main.js"></script>
 </body>
 </html>

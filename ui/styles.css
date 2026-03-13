@@ -70,6 +70,14 @@ body {
   color: #9ca3af;
 }
 
+.sidebar-user {
+  font-size: 12px;
+  color: #4b5563;
+  margin: 0 20px 4px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
 /* 主内容区 - 独立滚动 */
 .main {
   flex: 1;
@@ -640,4 +648,107 @@ body {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
+}
+
+/* 登录门禁 Overlay */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.login-card {
+  width: min(420px, calc(100vw - 48px));
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  padding: 20px 20px 18px;
+}
+
+.login-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.login-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.login-label {
+  font-size: 12px;
+  color: #374151;
+}
+
+.login-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.login-btn {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #22c55e;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.login-hint {
+  min-height: 18px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Pro 设备视图按钮行 */
+.device-view-row {
+  margin-bottom: 12px;
+}
+.device-view-btns {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.device-view-btn {
+  padding: 10px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.device-view-btn.active {
+  background: #374151;
+  border-color: #374151;
+  color: #fff;
 }
