@@ -250,7 +250,8 @@ async function refreshCurrentIdentityFromSession() {
     }
     // session 可能被刷新，落盘
     saveSession(data.session);
-    currentUser = { id: data.user.id, email: data.user.email };
+    const u = data.user;
+    currentUser = { id: u.id, email: u.email, displayName: u.user_metadata?.display_name || u.email };
     const planRow = await ensureUserPlan(data.user.id);
     currentPlan = mapPlanRow(planRow);
     try {
@@ -406,7 +407,7 @@ app.post('/api/cloud/login', async (req, res) => {
     }
     if (data.session) saveSession(data.session);
     const user = data.user;
-    currentUser = { id: user.id, email: user.email };
+    currentUser = { id: user.id, email: user.email, displayName: user.user_metadata?.display_name || user.email };
     currentDevice = null;
     let planRow = null;
     try {
@@ -435,9 +436,10 @@ app.post('/api/cloud/login', async (req, res) => {
     }
 
     currentPlan = mapPlanRow(planRow);
+    const displayName = user.user_metadata?.display_name || user.email;
     res.json({
       ok: true,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, user_metadata: user.user_metadata, displayName },
       plan: planRow
         ? {
             plan: planRow.plan,
@@ -451,6 +453,63 @@ app.post('/api/cloud/login', async (req, res) => {
   } catch (e) {
     console.error('[cloud] login error', e);
     res.status(500).json({ error: 'login_failed', message: e.message });
+  }
+});
+
+// Cloud register：邮箱+密码+昵称，Supabase signUp（需邮箱验证）
+app.post('/api/cloud/register', async (req, res) => {
+  if (!supabase || !supabaseAdmin) {
+    return res.status(500).json({ error: 'cloud_not_configured' });
+  }
+  const { email, password, displayName } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email_and_password_required' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'password_too_short', message: '密码至少 6 位' });
+  }
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { display_name: displayName || email },
+        emailRedirectTo: process.env.SUPABASE_EMAIL_REDIRECT || undefined
+      }
+    });
+    if (error) {
+      return res.status(400).json({ error: error.message, message: error.message });
+    }
+    if (data?.user && !data.user.identities?.length) {
+      return res.status(400).json({ error: 'email_already_registered', message: '该邮箱已注册' });
+    }
+    res.json({ ok: true, message: '验证邮件已发送，请查收' });
+  } catch (e) {
+    console.error('[cloud] register error', e);
+    res.status(500).json({ error: 'register_failed', message: e.message });
+  }
+});
+
+// Cloud forgot-password：发送重置邮件
+app.post('/api/cloud/forgot-password', async (req, res) => {
+  if (!supabase || !supabaseAdmin) {
+    return res.status(500).json({ error: 'cloud_not_configured' });
+  }
+  const { email } = req.body || {};
+  if (!email) {
+    return res.status(400).json({ error: 'email_required' });
+  }
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: process.env.SUPABASE_EMAIL_REDIRECT || undefined
+    });
+    if (error) {
+      return res.status(400).json({ error: error.message, message: error.message });
+    }
+    res.json({ ok: true, message: '重置邮件已发送' });
+  } catch (e) {
+    console.error('[cloud] forgot-password error', e);
+    res.status(500).json({ error: 'forgot_failed', message: e.message });
   }
 });
 

@@ -1,0 +1,12 @@
+{
+  "name": "keycounter-login",
+  "version": "1.0.0",
+  "description": "KeyCounter 登录窗口 - Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^40.6.1"
+  }
+}

@@ -22,21 +22,20 @@
 
 1. 下载项目（点 GitHub 页面的 **Code** → **Download ZIP**，解压到任意文件夹）
 2. 打开命令行（在项目文件夹里按住 Shift 右键 → 选「在此处打开 PowerShell」）
-3. 依次输入下面两条命令，每条输完按回车：
+3. 依次输入下面三条命令，每条输完按回车：
    ```
    cd widget
    npm install
-   ```
-4. 再输入：
-   ```
    cd ..\api
+   npm install
+   cd ..\login
    npm install
    ```
 
 ### 第三步：登录并启动软件
 
 1. 双击项目里的 `key_counter_simple.ahk`
-2. 会先弹出一个登录窗口（使用云账号登录）  
+2. 会先弹出 Electron 登录窗口（使用云账号登录，支持注册、忘记密码）  
    - **Free 用户**：仅支持本地保存最近 90 天的统计，不做云同步  
    - **Pro 用户**：支持多设备 + 云端同步（仍然会在本地保留数据）
 3. 登录成功后会短暂显示“欢迎 xxx 用户”的提示窗口，然后：  
@@ -131,6 +130,10 @@ cd api && npm install && cd ..
 ```
 Viki-YourKeyCounter/
 ├── key_counter_simple.ahk   # 主脚本（统计、托盘、启动 Electron）
+├── login/                   # 登录窗口（Electron）
+│   ├── main.js
+│   ├── login.html
+│   └── ...
 ├── widget/                  # 悬浮框（Electron）
 │   ├── main.js
 │   ├── widget.html
@@ -155,11 +158,11 @@ Viki-YourKeyCounter/
   - 可以在自己的分支中关闭登录门禁逻辑（不启动云相关接口），仅保留本地统计逻辑。
 - 如果你想自建云同步：
   - 参考 `files/supabase-schema.sql` 创建表结构；
-  - 在根目录 `.env` 中配置：
+  - 复制 `.env.sample` 为 `.env`，填写 Supabase 项目地址与密钥：
     - `SUPABASE_URL`
     - `SUPABASE_ANON_KEY`
     - `SUPABASE_SERVICE_ROLE_KEY`
-  - 本地 API 会自动加载这些环境变量并启用云端相关接口。
+  - 本地 API 会自动加载 `.env` 并启用云端相关接口。
 
 ### 打包
 

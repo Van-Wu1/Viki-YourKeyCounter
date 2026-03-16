@@ -45,73 +45,22 @@
     }
   }
 
-  function showLoginOverlay(show, hint) {
-    const overlay = document.getElementById('loginOverlay');
-    const hintEl = document.getElementById('loginHint');
-    if (!overlay) return;
-    overlay.style.display = show ? 'flex' : 'none';
-    if (hintEl) hintEl.textContent = hint || '';
-  }
-
-  async function cloudBootstrap() {
+  async function fetchCloudState() {
     try {
       await fetch('/api/cloud/bootstrap', { method: 'POST' });
     } catch (_) {}
-  }
-
-  async function ensureLoggedInOrShowGate() {
-    await cloudBootstrap();
     try {
       const meRes = await fetch('/api/cloud/me');
       if (meRes.ok) {
         const me = await meRes.json();
         if (me && me.ok && me.user) {
           setCloudState({ user: me.user, plan: me.plan || null });
-          showLoginOverlay(false);
           return true;
         }
       }
     } catch (_) {}
-    showLoginOverlay(true, '请先登录后开始统计。');
+    setCloudState({ user: null, plan: null });
     return false;
-  }
-
-  function initLoginGate() {
-    const btn = document.getElementById('loginSubmitBtn');
-    const emailEl = document.getElementById('loginEmail');
-    const pwdEl = document.getElementById('loginPassword');
-    const hintEl = document.getElementById('loginHint');
-    if (!btn || !emailEl || !pwdEl) return;
-    btn.onclick = async () => {
-      const email = emailEl.value.trim();
-      const password = pwdEl.value;
-      if (!email || !password) {
-        if (hintEl) hintEl.textContent = '请填写邮箱和密码。';
-        return;
-      }
-      btn.disabled = true;
-      const old = btn.textContent;
-      btn.textContent = '登录中...';
-      if (hintEl) hintEl.textContent = '';
-      try {
-        const res = await fetch('/api/cloud/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, deviceName: 'This Device' })
-        });
-        const json = await res.json();
-        if (!res.ok || !json.ok) throw new Error(json.error || res.statusText);
-        setCloudState({ user: json.user || null, plan: json.plan || null });
-        showLoginOverlay(false);
-        // 登录后再初始化页面数据
-        await initAfterLogin();
-      } catch (e) {
-        if (hintEl) hintEl.textContent = '登录失败：请检查邮箱或密码。';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = old;
-      }
-    };
   }
 
   function renderDeviceViewButtons() {
@@ -960,7 +909,7 @@
           await fetch('/api/cloud/logout', { method: 'POST' });
           setCloudState({ user: null, plan: null, devices: [] });
           renderCloudPrefs();
-          showLoginOverlay(true, '已退出登录，请重新登录以继续使用。');
+          showToast('已退出登录');
         } catch (e) {
           console.error('logout failed:', e);
         }
@@ -1059,14 +1008,11 @@
   }
 
   async function init() {
-    initLoginGate();
-    const loggedIn = await ensureLoggedInOrShowGate();
-    if (!loggedIn) return;
+    await fetchCloudState();
     await initAfterLogin();
   }
 
   async function initAfterLogin() {
-    // 登录后再加载数据与初始化 UI
     const headerEl = document.getElementById('headerDate');
     if (headerEl) headerEl.textContent = '加载中...';
     const ok = await loadData();

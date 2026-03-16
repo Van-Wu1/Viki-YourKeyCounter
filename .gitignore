@@ -17,6 +17,9 @@ pnpm-debug.log*
 .pnpm-store/
 bun.lockb
 
+# ----- Node.js / Electron (login) -----
+login/node_modules/
+
 # ----- Node.js / Electron (widget) -----
 widget/node_modules/
 widget/dist/
@@ -60,10 +63,19 @@ ehthumbs.db
 *.sublime-workspace
 agent-transcripts/
 
-# ----- 环境与密钥（若后续添加） -----
+# ----- 环境与密钥（敏感，绝不提交） -----
 .env
+.env.example
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
+*.pem
+*.key
+credentials.json
+secrets/
+config.local.*
 
 # ----- 云同步本地状态（不应提交） -----
 cloud_session.json

@@ -57,15 +57,13 @@ StartUp() {
     StartApi()
     ; 尝试用本地 session 自动登录
     if (TryAutoLogin()) {
-        ShowWelcome()
         StartAfterLogin()
         return
     }
-    ; 弹出登录窗口
-    if (!ShowLoginGui()) {
+    ; 弹出 Electron 登录窗口
+    if (!ShowLoginElectron()) {
         ExitApp()
     }
-    ShowWelcome()
     StartAfterLogin()
 }
 
@@ -97,94 +95,34 @@ TryAutoLogin() {
         email := m[1]
     if (email = "")
         return false
+    ; 优先使用 displayName 作为欢迎显示名
+    displayName := ""
+    if RegExMatch(resp["Text"], '"displayName"\s*:\s*"([^"]+)"', &m2)
+        displayName := m2[1]
     global loggedInEmail, isLoggedIn
-    loggedInEmail := email
+    loggedInEmail := (displayName != "") ? displayName : email
     isLoggedIn := 1
     return true
 }
 
-ShowLoginGui() {
-    global loggedInEmail, isLoggedIn
+ShowLoginElectron() {
+    global loggedInEmail, isLoggedIn, apiPort
     isLoggedIn := 0
     loggedInEmail := ""
-    loginGui := Gui("+AlwaysOnTop +Caption", "KeyCounter 登录")
-    loginGui.MarginX := 16
-    loginGui.MarginY := 16
-    loginGui.AddText(, "登录后开始统计（Free：仅本地 90 天 · Pro：多设备云同步）")
-    loginGui.AddText("xm ym+10", "邮箱：")
-    emailEdit := loginGui.AddEdit("w260 vEmail")
-    loginGui.AddText("xm y+8", "密码：")
-    pwdEdit := loginGui.AddEdit("w260 Password vPassword")
-    hintText := loginGui.AddText("xm y+6 cGray w260 h24", "")
-    btnLogin := loginGui.AddButton("xm y+10 w100", "登录")
-    btnCancel := loginGui.AddButton("x+8 w80", "退出")
-    loggedIn := false
-
-    btnLogin.OnEvent("Click", LoginSubmit)
-    btnCancel.OnEvent("Click", LoginClose)
-    loginGui.OnEvent("Close", LoginClose)
-
-    LoginSubmit(*) {
-        global loggedInEmail, isLoggedIn
-        email := emailEdit.Value
-        password := pwdEdit.Value
-        if (email = "" || password = "") {
-            hintText.Text := "请填写邮箱和密码。"
-            return
-        }
-        btnLogin.Enabled := false
-        hintText.Text := "登录中..."
-        body := '{'
-            . '"email":"' email '",'
-            . '"password":"' password '",'
-            . '"deviceName":"This Device"'
-            . '}'
-        resp := CloudHttp("POST", "/api/cloud/login", body)
-        if (resp["Status"] != 200 || !RegExMatch(resp["Text"], '"ok"\s*:\s*true')) {
-            if (RegExMatch(resp["Text"], 'cloud_not_configured')) {
-                hintText.Text := "云未配置：请在项目根目录创建 .env 并填入 Supabase 配置（见 README）。"
-            } else if (resp["Status"] = 0) {
-                hintText.Text := "无法连接本地 API，请确认 API 已启动（端口 " apiPort "）。"
-            } else {
-                hintText.Text := "登录失败，请检查邮箱或密码。"
-            }
-            btnLogin.Enabled := true
-            return
-        }
-        emailFound := ""
-        if RegExMatch(resp["Text"], '"email"\s*:\s*"([^"]+)"', &m2)
-            emailFound := m2[1]
-        if (emailFound = "")
-            emailFound := email
-        loggedInEmail := emailFound
-        isLoggedIn := 1
-        loggedIn := true
-        loginGui.Destroy()
+    loginDir := A_ScriptDir "\login"
+    electronExe := loginDir "\node_modules\electron\dist\electron.exe"
+    exitCode := 1
+    if (FileExist(electronExe)) {
+        exitCode := RunWait('"' electronExe '" . ' apiPort, loginDir)
+    } else {
+        exitCode := RunWait('npx electron . ' apiPort, loginDir)
     }
-
-    LoginClose(*) {
-        loginGui.Destroy()
-    }
-
-    loginGui.Show()
-    ; 阻塞等待窗口关闭
-    while WinExist("KeyCounter 登录") {
-        Sleep(100)
-    }
-    return loggedIn
-}
-
-ShowWelcome() {
-    global loggedInEmail
-    if (loggedInEmail = "")
-        return
-    welcomeGui := Gui("+AlwaysOnTop +ToolWindow -Caption", "")
-    welcomeGui.MarginX := 16
-    welcomeGui.MarginY := 12
-    welcomeGui.AddText("cBlack", "登录成功")
-    welcomeGui.AddText("cGray y+4", "欢迎 " loggedInEmail " 用户")
-    welcomeGui.Show("AutoSize Center")
-    SetTimer(() => welcomeGui.Destroy(), -3000)
+    if (exitCode != 0)
+        return false
+    ; 登录成功，session 已由 API 保存，刷新获取用户信息
+    if (!TryAutoLogin())
+        return false
+    return true
 }
 
 CloudHttp(method, path, body := "") {
