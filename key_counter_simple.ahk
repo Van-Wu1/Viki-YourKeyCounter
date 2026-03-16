@@ -43,6 +43,7 @@ global continuousSessionStart := 0
 
 global lastMouseEvent := ""
 global keyName := ""
+global lastTrayLang := ""
 global newDayId := ""
 global dashboardHash := ""
 ; PerKey 内存缓存，批量写入以减少 I/O
@@ -154,23 +155,50 @@ StartAfterLogin() {
     SaveDaySnapshot()
 
     ; 托盘菜单与定时器
-    A_TrayMenu.Delete()
-    A_TrayMenu.Add("Open Dashboard", OpenDashboard)
     SetTimer(CheckWidgetCommand, 500)
     SetTimer(CheckHealthCommand, 500)
     SetTimer(FlushSave, 2000)
     SetTimer(CheckHealthReminders, 30000)
-    A_TrayMenu.Default := "Open Dashboard"
-    A_TrayMenu.Add("Preferences", Preferences)
-    A_TrayMenu.Add("Show Window", ShowGui)
-    A_TrayMenu.Add("Hide Window", HideGui)
-    A_TrayMenu.Add("切换主题", ToggleTheme)
-    A_TrayMenu.Add()
-    A_TrayMenu.Add("Update check", UpdateCheck)
-    A_TrayMenu.Add("Open source", OpenSource)
-    A_TrayMenu.Add()
-    A_TrayMenu.Add("Reset", Reset)
-    A_TrayMenu.Add("Exit", ExitAppLabel)
+    BuildTrayMenu()
+}
+
+; 根据 gui.ini Language 构建托盘菜单（支持中英文）
+BuildTrayMenu() {
+    global lastTrayLang
+    lang := StrLower(IniRead("gui.ini", "Preferences", "Language", "zh"))
+    if (lang != "en")
+        lang := "zh"
+    lastTrayLang := lang
+    A_TrayMenu.Delete()
+    if (lang = "en") {
+        A_TrayMenu.Add("Open Dashboard", OpenDashboard)
+        A_TrayMenu.Default := "Open Dashboard"
+        A_TrayMenu.Add("Preferences", Preferences)
+        A_TrayMenu.Add("Show Window", ShowGui)
+        A_TrayMenu.Add("Hide Window", HideGui)
+        A_TrayMenu.Add("Center widget", CenterWidget)
+        A_TrayMenu.Add("Toggle theme", ToggleTheme)
+        A_TrayMenu.Add()
+        A_TrayMenu.Add("Update check", UpdateCheck)
+        A_TrayMenu.Add("Open source", OpenSource)
+        A_TrayMenu.Add()
+        A_TrayMenu.Add("Reset", Reset)
+        A_TrayMenu.Add("Exit", ExitAppLabel)
+    } else {
+        A_TrayMenu.Add("打开仪表盘", OpenDashboard)
+        A_TrayMenu.Default := "打开仪表盘"
+        A_TrayMenu.Add("设置", Preferences)
+        A_TrayMenu.Add("显示悬浮框", ShowGui)
+        A_TrayMenu.Add("隐藏悬浮框", HideGui)
+        A_TrayMenu.Add("悬浮框居中", CenterWidget)
+        A_TrayMenu.Add("切换主题", ToggleTheme)
+        A_TrayMenu.Add()
+        A_TrayMenu.Add("检查更新", UpdateCheck)
+        A_TrayMenu.Add("开源地址", OpenSource)
+        A_TrayMenu.Add()
+        A_TrayMenu.Add("重置", Reset)
+        A_TrayMenu.Add("退出", ExitAppLabel)
+    }
 }
 
 StartUp()
@@ -179,7 +207,17 @@ StartUp()
 ; 悬浮框右键菜单命令
 ;-------------------------
 CheckWidgetCommand() {
-    global
+    global lastTrayLang, isLoggedIn
+    ; 语言变更时重建托盘菜单
+    if (isLoggedIn) {
+        lang := StrLower(IniRead("gui.ini", "Preferences", "Language", "zh"))
+        if (lang = "en")
+            curLang := "en"
+        else
+            curLang := "zh"
+        if (curLang != lastTrayLang)
+            BuildTrayMenu()
+    }
     widgetCmdFile := A_ScriptDir "\keycounter_widget_cmd.txt"
     if !FileExist(widgetCmdFile)
         return
@@ -192,6 +230,7 @@ CheckWidgetCommand() {
         case "UpdateCheck": UpdateCheck()
         case "OpenSource": OpenSource()
         case "Reset": Reset()
+        case "LogoutAndRestart": DoLogoutAndRestart()
     }
 }
 
@@ -617,6 +656,43 @@ OpenDashboardCore() {
     } else {
         Run(dashboardUrl)
     }
+}
+
+; 退出登录：关闭悬浮框和面板，弹出登录窗口
+DoLogoutAndRestart() {
+    global
+    SetTimer(CheckWidgetCommand, 0)
+    SetTimer(CheckHealthCommand, 0)
+    SetTimer(FlushSave, 0)
+    SetTimer(CheckHealthReminders, 0)
+    FlushSave()
+    if (apiPid && apiPid != 0) {
+        try ProcessClose(apiPid)
+        apiPid := 0
+        Sleep(500)
+    }
+    CloseWidgetProcess()
+    try WinClose("KeyCounter Dashboard")
+    try WinClose("KeyCounter Widget")
+    Sleep(300)
+    ; 清空托盘菜单，避免等待登录期间仍可打开 Dashboard
+    A_TrayMenu.Delete()
+    lang := StrLower(IniRead("gui.ini", "Preferences", "Language", "zh"))
+    A_TrayMenu.Add((lang = "en") ? "Exit" : "退出", ExitAppLabel)
+    ; 重新启动 API（登录窗口需要）
+    StartApi()
+    Sleep(1500)
+    if (!ShowLoginElectron()) {
+        ExitApp()
+    }
+    StartAfterLogin()
+}
+
+; 悬浮框居中：写入命令文件，由 Widget 读取并移动到主屏中央
+CenterWidget(*) {
+    centerFile := A_ScriptDir "\keycounter_center_widget.txt"
+    try FileDelete(centerFile)
+    try FileAppend("1", centerFile)
 }
 
 ; 打开时置顶一次，不持续置顶

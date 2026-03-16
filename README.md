@@ -49,7 +49,7 @@
 | 看详细统计 | 右键托盘图标 → 选 **Open Dashboard** |
 | 改设置 | 右键托盘图标 → 选 **Preferences**，或从 Dashboard 左侧点 **Preferences** |
 | 隐藏/显示悬浮框 | 右键托盘 → **Hide Window** / **Show Window**，或按 **Ctrl+Alt+H** |
-| 手动上传今日数据（Pro） | Dashboard → **Preferences** → 云同步区域 → **上传今日数据** |
+| 云同步（Pro） | Dashboard → **Preferences** → 云同步 → **一键同步**（支持每分钟自动同步） |
 | 退出 | 右键托盘 → **Exit**（同时关闭悬浮框与本地 API） |
 
 ### 第五步：设置健康提醒（可选）

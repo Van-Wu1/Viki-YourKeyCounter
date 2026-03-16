@@ -16,6 +16,90 @@
     localDeviceKey: null
   };
 
+  const I18N = {
+    zh: {
+      nav: { dashboard: '仪表盘', preferences: '设置' },
+      header: { export: '导出', refresh: '刷新', currentDay: '当前统计日：' },
+      activity: { title: '牛马积极性', all: 'All', keys: 'Keys', mouse: 'Mouse', mostActiveMonth: '最积极的月份', mostActiveDay: '最积极的天', fewer: 'Fewer', more: 'More' },
+      range: { day: '当日', week: '本周', month: '本月', custom: '自定义' },
+      panel: { keyRank: '键位排行 (Top 20)', mouseDetail: '鼠标明细', trend: '腱鞘炎趋势', trendWeek: '每周', trendMonth: '每月', trendYear: '每年' },
+      cloud: { allDevices: '所有设备' },
+      prefs: {
+        language: '语言', theme: '主题', themeLight: '浅色', themeDark: '深色',
+        widgetTitle: '悬浮框设置', widgetDesc: '调整悬浮框的尺寸、不透明度和圆角，保存后立即生效。',
+        size: '尺寸', opacity: '不透明度', borderRadius: '圆角', sizeUnit: '%（30%=200×45px，等比缩放）',
+        healthTitle: '健康提醒', sittingSub: '久坐提醒（红点）', sittingEnabled: '启用久坐提醒',
+        sittingMinutes: '连续操作', sittingUnit: '分钟后提醒（中途休息≥5分钟视为断开）',
+        tenoSub: '腱鞘炎提醒（黄点）', tenoEnabled: '启用腱鞘炎提醒',
+        keyboardThreshold: '键盘阈值', mouseThreshold: '鼠标阈值', thresholdUnit: '次/日（0=不限制）',
+        waterSub: '喝水提醒（蓝点）', waterEnabled: '启用喝水提醒',
+        waterMinutes: '提醒间隔', waterUnit: '分钟', cooldown: '冷却时间', cooldownUnit: '分钟（各模块提醒后冷却）',
+        saveBtn: '保存设置', currentPlan: '当前计划', deviceNaming: '设备命名', cloudSync: '云同步',
+        oneClickSync: '一键同步', logout: '退出登录', rename: '重命名', donation: '！😋打赏作者更有力气😋！'
+      },
+      chart: { noData: '暂无数据', leftClick: '左键', rightClick: '右键', wheelUp: '滚轮↑', wheelDown: '滚轮↓', keyboard: '键盘', mouse: '鼠标' },
+      toast: { saved: '已保存' }
+    },
+    en: {
+      nav: { dashboard: 'Dashboard', preferences: 'Preferences' },
+      header: { export: 'Export', refresh: 'Refresh', currentDay: 'Current day: ' },
+      activity: { title: 'Activity', all: 'All', keys: 'Keys', mouse: 'Mouse', mostActiveMonth: 'Most active month', mostActiveDay: 'Most active day', fewer: 'Fewer', more: 'More' },
+      range: { day: 'Today', week: 'This week', month: 'This month', custom: 'Custom' },
+      panel: { keyRank: 'Key Ranking (Top 20)', mouseDetail: 'Mouse Details', trend: 'Tenosynovitis Trend', trendWeek: 'Weekly', trendMonth: 'Monthly', trendYear: 'Yearly' },
+      cloud: { allDevices: 'All devices' },
+      prefs: {
+        language: 'Language', theme: 'Theme', themeLight: 'Light', themeDark: 'Dark',
+        widgetTitle: 'Widget Settings', widgetDesc: 'Adjust widget size, opacity and border radius. Changes apply after save.',
+        size: 'Size', opacity: 'Opacity', borderRadius: 'Border radius', sizeUnit: '% (30%=200×45px, scaled)',
+        healthTitle: 'Health Reminders', sittingSub: 'Sitting reminder (red dot)', sittingEnabled: 'Enable sitting reminder',
+        sittingMinutes: 'Continuous use', sittingUnit: 'minutes before reminder (≥5 min break resets)',
+        tenoSub: 'Tenosynovitis reminder (yellow dot)', tenoEnabled: 'Enable tenosynovitis reminder',
+        keyboardThreshold: 'Keyboard threshold', mouseThreshold: 'Mouse threshold', thresholdUnit: 'times/day (0=unlimited)',
+        waterSub: 'Water reminder (blue dot)', waterEnabled: 'Enable water reminder',
+        waterMinutes: 'Reminder interval', waterUnit: 'minutes', cooldown: 'Cooldown', cooldownUnit: 'minutes (after each reminder)',
+        saveBtn: 'Save Settings', currentPlan: 'Current plan', deviceNaming: 'Device naming', cloudSync: 'Cloud sync',
+        oneClickSync: 'One-click sync', logout: 'Log out', rename: 'Rename', donation: '!😋 Tip the author 😋!' },
+      chart: { noData: 'No data', leftClick: 'Left click', rightClick: 'Right click', wheelUp: 'Wheel up', wheelDown: 'Wheel down', keyboard: 'Keyboard', mouse: 'Mouse' },
+      toast: { saved: 'Saved' }
+    }
+  };
+
+  function getLang() {
+    const gui = window.__KEYCOUNTER_GUI_INI__ || {};
+    const lang = (gui.Preferences || {}).Language || 'zh';
+    return lang === 'en' ? 'en' : 'zh';
+  }
+
+  function t(key) {
+    const parts = key.split('.');
+    let v = I18N[getLang()];
+    for (const p of parts) {
+      v = v && v[p];
+    }
+    return v != null ? v : key;
+  }
+
+  function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n');
+      if (key) el.textContent = t(key);
+    });
+    const headerTitle = document.getElementById('headerTitle');
+    if (headerTitle) {
+      const activeNav = document.querySelector('.nav-item.active');
+      const page = activeNav?.dataset?.page || 'dashboard';
+      headerTitle.textContent = t(page === 'preferences' ? 'nav.preferences' : 'nav.dashboard');
+    }
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-placeholder');
+      if (key) el.placeholder = t(key);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-title');
+      if (key) el.title = t(key);
+    });
+  }
+
   function getData() {
     return window.__KEYCOUNTER_DATA__ || {};
   }
@@ -25,8 +109,15 @@
   }
 
   async function loadData() {
+    const activeViewId = cloudState.activeViewId ?? 'all';
+    const useCloud = cloudState.user && cloudState.plan?.plan === 'pro';
+    const url = useCloud
+      ? (activeViewId === 'all'
+        ? '/api/cloud/data?view=all'
+        : '/api/cloud/data?view=device&deviceId=' + encodeURIComponent(activeViewId))
+      : '/api/data';
     try {
-      const res = await fetch('/api/data');
+      const res = await fetch(url);
       if (!res.ok) throw new Error(res.statusText);
       const json = await res.json();
       window.__KEYCOUNTER_DATA__ = {
@@ -76,7 +167,7 @@
     // buttons: All + current device first + rest
     const devs = [...(cloudState.devices || [])];
     devs.sort((a, b) => (b.isCurrentDevice ? 1 : 0) - (a.isCurrentDevice ? 1 : 0));
-    const buttons = [{ id: 'all', label: '所有设备' }, ...devs.map((d) => ({ id: d.id, label: d.displayName || d.id }))];
+    const buttons = [{ id: 'all', label: t('cloud.allDevices') }, ...devs.map((d) => ({ id: d.id, label: d.displayName || d.id }))];
     const activeId = cloudState.activeViewId || 'all';
     wrap.innerHTML = '';
     // Always render 6 slots width via CSS grid; fewer buttons just fewer items.
@@ -88,7 +179,8 @@
       el.onclick = async () => {
         setCloudState({ activeViewId: b.id });
         renderDeviceViewButtons();
-        // TODO: 下一步会接云端 data 渲染（此处先占位）
+        const ok = await loadData();
+        if (ok) render();
       };
       wrap.appendChild(el);
     });
@@ -178,7 +270,7 @@
     const currentDayId = data.currentDayId || '';
 
     document.getElementById('headerDate').textContent = currentDayId
-      ? '当前统计日：' + formatDayId(currentDayId)
+      ? t('header.currentDay') + formatDayId(currentDayId)
       : '';
 
     renderActivityPanel(days, dayData);
@@ -461,7 +553,7 @@
 
     if (!keyChartInstance) keyChartInstance = echarts.init(chartDom);
     if (top.length === 0) {
-      keyChartInstance.setOption({ title: { text: '暂无数据', left: 'center', top: 'center' } });
+      keyChartInstance.setOption({ title: { text: t('chart.noData'), left: 'center', top: 'center' } });
       return;
     }
     keyChartInstance.setOption({
@@ -486,16 +578,16 @@
     const chartDom = document.getElementById('mouseChart');
     if (!chartDom) return;
 
-    const t = totals || {};
-    const ml = t.mouseLeft || 0;
-    const mr = t.mouseRight || 0;
-    const wu = t.wheelUp || 0;
-    const wd = t.wheelDown || 0;
+    const tot = totals || {};
+    const ml = tot.mouseLeft || 0;
+    const mr = tot.mouseRight || 0;
+    const wu = tot.wheelUp || 0;
+    const wd = tot.wheelDown || 0;
     const total = ml + mr + wu + wd;
 
     if (!mouseChartInstance) mouseChartInstance = echarts.init(chartDom);
     if (total === 0) {
-      mouseChartInstance.setOption({ title: { text: '暂无数据', left: 'center', top: 'center' } });
+      mouseChartInstance.setOption({ title: { text: t('chart.noData'), left: 'center', top: 'center' } });
       return;
     }
     mouseChartInstance.setOption({
@@ -506,10 +598,10 @@
         radius: ['35%', '58%'],
         center: ['50%', '32%'],
         data: [
-          { value: ml, name: '左键', itemStyle: { color: '#22c55e' } },
-          { value: mr, name: '右键', itemStyle: { color: '#16a34a' } },
-          { value: wu, name: '滚轮↑', itemStyle: { color: '#4ade80' } },
-          { value: wd, name: '滚轮↓', itemStyle: { color: '#15803d' } }
+          { value: ml, name: t('chart.leftClick'), itemStyle: { color: '#22c55e' } },
+          { value: mr, name: t('chart.rightClick'), itemStyle: { color: '#16a34a' } },
+          { value: wu, name: t('chart.wheelUp'), itemStyle: { color: '#4ade80' } },
+          { value: wd, name: t('chart.wheelDown'), itemStyle: { color: '#15803d' } }
         ],
         label: { formatter: '{b}: {c}' }
       }]
@@ -531,7 +623,7 @@
 
     if (!trendChartInstance) trendChartInstance = echarts.init(chartDom);
     if (filtered.length === 0) {
-      trendChartInstance.setOption({ title: { text: '暂无数据', left: 'center', top: 'center' } });
+      trendChartInstance.setOption({ title: { text: t('chart.noData'), left: 'center', top: 'center' } });
       return trendChartInstance;
     }
 
@@ -545,12 +637,12 @@
     trendChartInstance.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: 48, right: 24, top: 24, bottom: 72 },
-      legend: { data: ['键盘', '鼠标'], bottom: 4, itemGap: 20 },
+      legend: { data: [t('chart.keyboard'), t('chart.mouse')], bottom: 4, itemGap: 20 },
       xAxis: { type: 'category', data: x },
       yAxis: { type: 'value' },
       series: [
-        { name: '键盘', type: 'line', data: keyboard, smooth: true, itemStyle: { color: '#22c55e' } },
-        { name: '鼠标', type: 'line', data: mouse, smooth: true, itemStyle: { color: '#4ade80' } }
+        { name: t('chart.keyboard'), type: 'line', data: keyboard, smooth: true, itemStyle: { color: '#22c55e' } },
+        { name: t('chart.mouse'), type: 'line', data: mouse, smooth: true, itemStyle: { color: '#4ade80' } }
       ]
     });
     return trendChartInstance;
@@ -577,13 +669,19 @@
         el.classList.add('active');
         document.getElementById('page-dashboard').style.display = page === 'dashboard' ? 'block' : 'none';
         document.getElementById('page-preferences').style.display = page === 'preferences' ? 'block' : 'none';
-        document.getElementById('headerTitle').textContent = page === 'dashboard' ? 'Dashboard' : 'Preferences';
+        document.getElementById('headerTitle').textContent = t(page === 'dashboard' ? 'nav.dashboard' : 'nav.preferences');
         document.getElementById('headerDate').style.visibility = page === 'dashboard' ? 'visible' : 'hidden';
         if (refreshBtn) refreshBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
         const exportBtn = document.getElementById('headerExportBtn');
         if (exportBtn) exportBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
         if (page === 'preferences') {
           loadData().then(() => initPrefsForm());
+        } else if (page === 'dashboard') {
+          requestAnimationFrame(() => {
+            keyChartInstance?.resize();
+            mouseChartInstance?.resize();
+            trendChartInstance?.resize();
+          });
         }
       };
     });
@@ -650,6 +748,7 @@
     const waterMinutes = parseInt(p.WaterMinutes, 10) || 45;
     const reminderCooldown = parseInt(p.ReminderCooldown, 10) || 1;
     const theme = (p.Theme || 'light').toLowerCase() === 'dark' ? 'dark' : 'light';
+    const language = (p.Language || 'zh').toLowerCase() === 'en' ? 'en' : 'zh';
 
     const spEl = document.getElementById('prefSizePercent');
     const spVal = document.getElementById('prefSizePercentVal');
@@ -678,15 +777,43 @@
     document.querySelectorAll('.theme-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.theme === theme);
     });
+    document.querySelectorAll('.lang-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.lang === language);
+    });
 
-    if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; };
+    if (tEl) tEl.oninput = () => { tVal.textContent = tEl.value; saveFloatingPrefs(); };
     document.querySelectorAll('.theme-btn').forEach((btn) => {
       btn.onclick = () => {
         document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
+        saveFloatingPrefs();
       };
     });
-    if (spEl && spVal) spEl.oninput = () => { spVal.textContent = spEl.value; };
+    document.querySelectorAll('.lang-btn').forEach((btn) => {
+      btn.onclick = async () => {
+        document.querySelectorAll('.lang-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const { content, guiIni } = buildPrefsContent();
+        try {
+          const res = await fetch('/api/prefs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+          });
+          if (res.ok) {
+            window.__KEYCOUNTER_GUI_INI__ = guiIni;
+            applyI18n();
+            render();
+            renderDeviceViewButtons();
+            showToast(t('toast.saved'));
+          }
+        } catch (e) {
+          console.error('save language failed:', e);
+        }
+      };
+    });
+    if (spEl && spVal) spEl.oninput = () => { spVal.textContent = spEl.value; saveFloatingPrefs(); };
+    if (bEl) bEl.onchange = saveFloatingPrefs;
 
     initCloudPrefs();
   }
@@ -726,29 +853,27 @@
   }
 
   function renderCloudPrefs() {
-    const statusEl = document.getElementById('cloudStatusText');
     const accountRow = document.getElementById('cloudAccountInfo');
     const planTextEl = document.getElementById('cloudPlanText');
     const planHintEl = document.getElementById('cloudPlanHint');
     const devicesRow = document.getElementById('cloudDevicesRow');
     const devicesList = document.getElementById('cloudDevicesList');
     const syncRow = document.getElementById('cloudSyncRow');
-    const emailInput = document.getElementById('cloudEmail');
-    const pwdInput = document.getElementById('cloudPassword');
+    const logoutRow = document.getElementById('cloudLogoutRow');
     const sidebarUser = document.getElementById('sidebarUserInfo');
-    if (!statusEl || !accountRow || !planTextEl || !planHintEl || !devicesRow || !devicesList) return;
+    if (!accountRow || !planTextEl || !planHintEl || !devicesRow || !devicesList) return;
 
     if (!cloudState.user) {
-      statusEl.textContent = '未登录';
       accountRow.style.display = 'none';
       devicesRow.style.display = 'none';
       if (syncRow) syncRow.style.display = 'none';
+      if (logoutRow) logoutRow.style.display = 'none';
       if (sidebarUser) sidebarUser.textContent = '';
       return;
     }
 
-    statusEl.textContent = '已登录：' + (cloudState.user.email || '');
     accountRow.style.display = 'flex';
+    if (logoutRow) logoutRow.style.display = 'flex';
 
     const plan = cloudState.plan || { plan: 'free', deviceLimit: 1, retentionDays: 90 };
     const planLabel = plan.plan === 'pro' ? 'Pro 计划' : 'Free 计划';
@@ -764,10 +889,10 @@
     devicesRow.style.display = 'flex';
     if (syncRow) syncRow.style.display = 'flex';
     devicesList.innerHTML = '';
-    const devs = cloudState.devices || [];
+    const devs = (cloudState.devices || []).filter((d) => d.isCurrentDevice);
     if (!devs.length) {
       const li = document.createElement('li');
-      li.textContent = '暂无设备记录。';
+      li.textContent = '暂无本机设备记录。';
       devicesList.appendChild(li);
     } else {
       devs.forEach((d) => {
@@ -777,12 +902,6 @@
         nameInput.type = 'text';
         nameInput.value = d.displayName || '';
         nameInput.className = 'prefs-cloud-device-name';
-        const metaSpan = document.createElement('span');
-        metaSpan.className = 'prefs-cloud-device-meta';
-        const tags = [];
-        if (d.isCurrentDevice) tags.push('本机');
-        if (d.disabled) tags.push('已禁用');
-        if (tags.length) metaSpan.textContent = `（${tags.join(' · ')}）`;
         const saveBtn = document.createElement('button');
         saveBtn.type = 'button';
         saveBtn.textContent = '重命名';
@@ -815,15 +934,9 @@
         };
         li.appendChild(nameInput);
         li.appendChild(saveBtn);
-        li.appendChild(metaSpan);
         devicesList.appendChild(li);
       });
     }
-
-    if (emailInput && !emailInput.value && cloudState.user.email) {
-      emailInput.value = cloudState.user.email;
-    }
-    if (pwdInput) pwdInput.value = '';
 
     if (sidebarUser) {
       const planSuffix = plan.plan || 'free';
@@ -831,98 +944,97 @@
     }
   }
 
+  let lastSyncTime = null;
+  let autoSyncTimer = null;
+
+  function updateLastSyncTimeDisplay() {
+    const el = document.getElementById('cloudLastSyncTime');
+    if (!el) return;
+    if (!lastSyncTime) {
+      el.textContent = '';
+      return;
+    }
+    const d = new Date(lastSyncTime);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 1000);
+    if (diff < 60) el.textContent = '上次同步：刚刚';
+    else if (diff < 3600) el.textContent = '上次同步：' + Math.floor(diff / 60) + ' 分钟前';
+    else el.textContent = '上次同步：' + d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function doUploadToday() {
+    const uploadBtn = document.getElementById('cloudUploadTodayBtn');
+    const uploadStatus = document.getElementById('cloudUploadTodayStatus');
+    if (!uploadBtn || !uploadStatus) return;
+    uploadBtn.disabled = true;
+    const oldText = uploadBtn.textContent;
+    uploadBtn.textContent = '同步中...';
+    uploadStatus.textContent = '';
+    try {
+      const res = await fetch('/api/cloud/sync/uploadToday', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || res.statusText);
+      }
+      lastSyncTime = Date.now();
+      updateLastSyncTimeDisplay();
+      const daysCount = json.uploaded.daysCount ?? 1;
+      const errHint = json.errors?.length ? `（${json.errors.length} 天失败）` : '';
+      uploadStatus.textContent = `已同步 ${daysCount} 天${errHint}：Keys ${json.uploaded.keys.toLocaleString()} · Mouse ${(json.uploaded.mouseLeft + json.uploaded.mouseRight + json.uploaded.wheelUp + json.uploaded.wheelDown).toLocaleString()} · PerKey ${json.uploaded.perKeyCount}`;
+    } catch (e) {
+      console.error('uploadToday failed:', e);
+      uploadStatus.textContent = '上传失败：' + (e.message || '请重试');
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = oldText;
+    }
+  }
+
+  function startAutoSync() {
+    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    if (!cloudState.user) return;
+    autoSyncTimer = setInterval(() => {
+      if (cloudState.user && cloudState.plan && cloudState.plan.plan === 'pro') {
+        doUploadToday();
+      }
+    }, 60000);
+  }
+
+  function stopAutoSync() {
+    if (autoSyncTimer) {
+      clearInterval(autoSyncTimer);
+      autoSyncTimer = null;
+    }
+  }
+
   function initCloudPrefs() {
-    const loginBtn = document.getElementById('cloudLoginBtn');
-    const emailInput = document.getElementById('cloudEmail');
-    const pwdInput = document.getElementById('cloudPassword');
-    const statusEl = document.getElementById('cloudStatusText');
     const uploadBtn = document.getElementById('cloudUploadTodayBtn');
     const uploadStatus = document.getElementById('cloudUploadTodayStatus');
     const logoutBtn = document.getElementById('cloudLogoutBtn');
-    if (!loginBtn || !emailInput || !pwdInput || !statusEl) return;
-
-    loginBtn.onclick = async () => {
-      const email = emailInput.value.trim();
-      const password = pwdInput.value;
-      if (!email || !password) {
-        alert('请填写邮箱和密码');
-        return;
-      }
-      loginBtn.disabled = true;
-      loginBtn.textContent = '登录中...';
-      statusEl.textContent = '';
-      try {
-        const res = await fetch('/api/cloud/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, deviceName: '下班快乐机' })
-        });
-        const json = await res.json();
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || res.statusText);
-        }
-        setCloudState({
-          user: json.user || null,
-          plan: json.plan || null,
-          localDeviceKey: json.localDeviceKey || null
-        });
-        if (json.device && json.device.error === 'device_limit_exceeded') {
-          alert('当前计划仅支持 1 台设备，已达到上限。如需在多台设备同步，请升级到 Pro。');
-        }
-        await fetchCloudMeAndDevices();
-        renderCloudPrefs();
-      } catch (e) {
-        console.error('cloud login failed:', e);
-        alert('登录失败：' + (e.message || '请检查邮箱和密码'));
-      } finally {
-        loginBtn.disabled = false;
-        loginBtn.textContent = '登录云账号';
-      }
-    };
 
     if (uploadBtn && uploadStatus) {
-      uploadBtn.onclick = async () => {
-        uploadBtn.disabled = true;
-        const oldText = uploadBtn.textContent;
-        uploadBtn.textContent = '上传中...';
-        uploadStatus.textContent = '';
-        try {
-          const res = await fetch('/api/cloud/sync/uploadToday', { method: 'POST' });
-          const json = await res.json();
-          if (!res.ok || !json.ok) {
-            throw new Error(json.error || res.statusText);
-          }
-          uploadStatus.textContent = `已上传：Keys ${json.uploaded.keys.toLocaleString()} · Mouse ${(json.uploaded.mouseLeft + json.uploaded.mouseRight + json.uploaded.wheelUp + json.uploaded.wheelDown).toLocaleString()} · PerKey ${json.uploaded.perKeyCount}`;
-        } catch (e) {
-          console.error('uploadToday failed:', e);
-          uploadStatus.textContent = '上传失败：' + (e.message || '请重试');
-        } finally {
-          uploadBtn.disabled = false;
-          uploadBtn.textContent = oldText;
-        }
-      };
+      uploadBtn.onclick = doUploadToday;
     }
 
     if (logoutBtn) {
       logoutBtn.onclick = async () => {
         try {
-          await fetch('/api/cloud/logout', { method: 'POST' });
+          await fetch('/api/cloud/logout-and-restart', { method: 'POST' });
+          stopAutoSync();
           setCloudState({ user: null, plan: null, devices: [] });
-          renderCloudPrefs();
-          showToast('已退出登录');
         } catch (e) {
           console.error('logout failed:', e);
         }
       };
     }
 
-    // 进入 Preferences 页面时尝试加载一次 cloud 状态
     fetchCloudMeAndDevices().then(() => {
       renderCloudPrefs();
+      updateLastSyncTimeDisplay();
     });
   }
 
-  async function savePrefs() {
+  function buildPrefsContent() {
     const gui = getGuiIni();
     const f = gui.Floating || {};
     const sizePercent = parseInt(document.getElementById('prefSizePercent').value, 10) || 30;
@@ -939,6 +1051,7 @@
     const waterMinutes = parseInt(document.getElementById('prefWaterMinutes').value, 10) || 45;
     const reminderCooldown = parseInt(document.getElementById('prefReminderCooldown').value, 10) || 1;
     const theme = document.querySelector('.theme-btn.active')?.dataset.theme || 'light';
+    const language = document.querySelector('.lang-btn.active')?.dataset.lang || 'zh';
 
     const lines = [
       '[Floating]',
@@ -947,6 +1060,7 @@
       'Visible=' + (f.Visible || '1'),
       '',
       '[Preferences]',
+      'Language=' + language,
       'Theme=' + theme,
       'SizePercent=' + sizePercent,
       'Transparency=' + transparency,
@@ -960,26 +1074,36 @@
       'WaterMinutes=' + waterMinutes,
       'ReminderCooldown=' + reminderCooldown
     ];
-    const content = lines.join('\r\n');
+    return { content: lines.join('\r\n'), guiIni: { Floating: f, Preferences: { Language: language, Theme: theme, SizePercent: String(sizePercent), Transparency: String(transparency), BorderRadius: String(borderRadius), SittingEnabled: sittingEnabled, SittingMinutes: String(sittingMinutes), TenosynovitisEnabled: tenosynovitisEnabled, KeyboardThreshold: String(keyboardThreshold), MouseThreshold: String(mouseThreshold), WaterEnabled: waterEnabled, WaterMinutes: String(waterMinutes), ReminderCooldown: String(reminderCooldown) } } };
+  }
 
+  async function saveFloatingPrefs() {
     try {
+      const { content, guiIni } = buildPrefsContent();
       const res = await fetch('/api/prefs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content })
       });
       if (res.ok) {
-        showToast('已保存');
-        window.__KEYCOUNTER_GUI_INI__ = {
-          Floating: f,
-          Preferences: {
-            Theme: theme, SizePercent: String(sizePercent), Transparency: String(transparency), BorderRadius: String(borderRadius),
-            SittingEnabled: sittingEnabled, SittingMinutes: String(sittingMinutes),
-            TenosynovitisEnabled: tenosynovitisEnabled, KeyboardThreshold: String(keyboardThreshold),
-            MouseThreshold: String(mouseThreshold), WaterEnabled: waterEnabled, WaterMinutes: String(waterMinutes),
-            ReminderCooldown: String(reminderCooldown)
-          }
-        };
+        window.__KEYCOUNTER_GUI_INI__ = guiIni;
+      }
+    } catch (e) {
+      console.error('saveFloatingPrefs failed:', e);
+    }
+  }
+
+  async function savePrefs() {
+    try {
+      const { content, guiIni } = buildPrefsContent();
+      const res = await fetch('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      if (res.ok) {
+        showToast(t('toast.saved'));
+        window.__KEYCOUNTER_GUI_INI__ = guiIni;
       } else {
         throw new Error(res.statusText);
       }
@@ -1010,6 +1134,9 @@
   async function init() {
     await fetchCloudState();
     await initAfterLogin();
+    if (cloudState.user && cloudState.plan && cloudState.plan.plan === 'pro') {
+      startAutoSync();
+    }
   }
 
   async function initAfterLogin() {
@@ -1019,7 +1146,12 @@
     if (!ok) {
       document.getElementById('headerDate').textContent = '数据加载失败，请确保 API 服务已启动。';
     }
-    render();
+    applyI18n();
+    try {
+      render();
+    } catch (renderErr) {
+      console.error('[KeyCounter] render failed:', renderErr);
+    }
     initNav();
     maybeOpenPrefs();
     // 刷新 cloud 状态（devices/plan）

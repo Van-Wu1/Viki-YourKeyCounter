@@ -356,6 +356,7 @@ function buildDashboardData() {
     guiIni: {
       Floating: { X: floating.X || '0', Y: floating.Y || '0', Visible: floating.Visible || '1' },
       Preferences: {
+        Language: prefs.Language || 'zh',
         Theme: prefs.Theme || 'light',
         SizePercent: prefs.SizePercent || '30',
         Transparency: prefs.Transparency || '94',
@@ -521,6 +522,21 @@ app.post('/api/cloud/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// 退出登录并触发 AHK 重启到登录界面（关闭悬浮框和面板）
+const WIDGET_CMD_FILE = path.join(ROOT_DIR, 'keycounter_widget_cmd.txt');
+app.post('/api/cloud/logout-and-restart', (req, res) => {
+  currentUser = null;
+  currentDevice = null;
+  currentPlan = null;
+  clearSession();
+  try {
+    fs.writeFileSync(WIDGET_CMD_FILE, 'LogoutAndRestart', 'utf8');
+  } catch (e) {
+    console.warn('[cloud] write LogoutAndRestart cmd failed:', e.message);
+  }
+  res.json({ ok: true });
+});
+
 // Cloud me：返回当前进程记住的用户信息与 plan
 app.get('/api/cloud/me', async (req, res) => {
   if (!supabase || !supabaseAdmin) {
@@ -631,7 +647,120 @@ app.post('/api/cloud/devices/rename', async (req, res) => {
   }
 });
 
-// Cloud sync (manual MVP): upload today's rollup into daily_rollups
+// Cloud data: 多设备视图（view=all 聚合所有设备，view=device 指定设备）
+app.get('/api/cloud/data', async (req, res) => {
+  if (!supabase || !supabaseAdmin) {
+    return res.status(500).json({ error: 'cloud_not_configured' });
+  }
+  if (!currentUser) {
+    return res.status(401).json({ error: 'not_logged_in' });
+  }
+  const view = req.query.view || 'all';
+  const deviceId = req.query.deviceId || null;
+
+  try {
+    // 统一从 daily_rollups 读取，保证多设备数据一致可加总（所有设备 = 各设备之和）
+    let query = supabaseAdmin
+      .from('daily_rollups')
+      .select('day_id, device_id, keys_total, mouse_left_total, mouse_right_total, wheel_up_total, wheel_down_total, per_key_total')
+      .eq('user_id', currentUser.id);
+
+    if (view === 'device' && deviceId) {
+      query = query.eq('device_id', deviceId);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) {
+      return res.status(500).json({ error: 'query_failed', message: error.message });
+    }
+
+    const dayData = {};
+    const dayIdsSet = new Set();
+
+    if (view === 'all' && rows && rows.length > 0) {
+      const byDay = {};
+      for (const r of rows) {
+        const dayId = r.day_id;
+        dayIdsSet.add(dayId);
+        if (!byDay[dayId]) {
+          byDay[dayId] = {
+            keyboard: 0,
+            mouseLeft: 0,
+            mouseRight: 0,
+            wheelUp: 0,
+            wheelDown: 0,
+            perKey: {}
+          };
+        }
+        byDay[dayId].keyboard += toInt(r.keys_total);
+        byDay[dayId].mouseLeft += toInt(r.mouse_left_total);
+        byDay[dayId].mouseRight += toInt(r.mouse_right_total);
+        byDay[dayId].wheelUp += toInt(r.wheel_up_total);
+        byDay[dayId].wheelDown += toInt(r.wheel_down_total);
+        const pk = r.per_key_total || {};
+        for (const [k, v] of Object.entries(pk)) {
+          byDay[dayId].perKey[k] = (byDay[dayId].perKey[k] || 0) + toInt(v);
+        }
+      }
+      for (const [dayId, agg] of Object.entries(byDay)) {
+        dayData[dayId] = {
+          totals: {
+            keyboard: agg.keyboard,
+            mouseLeft: agg.mouseLeft,
+            mouseRight: agg.mouseRight,
+            wheelUp: agg.wheelUp,
+            wheelDown: agg.wheelDown
+          },
+          perKey: agg.perKey
+        };
+      }
+    } else if (view === 'device' && rows) {
+      for (const r of rows) {
+        const dayId = r.day_id;
+        dayIdsSet.add(dayId);
+        const pk = r.per_key_total || {};
+        const perKey = {};
+        for (const [k, v] of Object.entries(pk)) perKey[k] = toInt(v);
+        dayData[dayId] = {
+          totals: {
+            keyboard: toInt(r.keys_total),
+            mouseLeft: toInt(r.mouse_left_total),
+            mouseRight: toInt(r.mouse_right_total),
+            wheelUp: toInt(r.wheel_up_total),
+            wheelDown: toInt(r.wheel_down_total)
+          },
+          perKey
+        };
+      }
+    }
+
+    const days = [...dayIdsSet].sort();
+    const totals = { keyboard: 0, mouseLeft: 0, mouseRight: 0, wheelUp: 0, wheelDown: 0 };
+    for (const d of Object.values(dayData)) {
+      const t = d.totals || {};
+      totals.keyboard += t.keyboard || 0;
+      totals.mouseLeft += t.mouseLeft || 0;
+      totals.mouseRight += t.mouseRight || 0;
+      totals.wheelUp += t.wheelUp || 0;
+      totals.wheelDown += t.wheelDown || 0;
+    }
+
+    const local = getDashboardData();
+    res.json({
+      currentDayId: local.currentDayId,
+      totals,
+      days,
+      dayData,
+      guiIni: local.guiIni || {},
+      viewInfo: { view, deviceId: deviceId || null, isCurrentDevice: !!currentDevice && currentDevice.id === deviceId }
+    });
+  } catch (e) {
+    console.error('[cloud] /api/cloud/data error', e);
+    res.status(500).json({ error: 'data_failed', message: e.message });
+  }
+});
+
+// Cloud sync: 上传 data 文件夹内所有日期的数据到 daily_rollups
 app.post('/api/cloud/sync/uploadToday', async (req, res) => {
   if (!supabase || !supabaseAdmin) {
     return res.status(500).json({ error: 'cloud_not_configured' });
@@ -643,48 +772,58 @@ app.post('/api/cloud/sync/uploadToday', async (req, res) => {
     return res.status(403).json({ error: 'pro_required' });
   }
   try {
-    const local = getDashboardData(); // currentDayId + local totals + local dayData
-    const dayId = local.currentDayId;
-    if (!dayId) {
-      return res.status(400).json({ error: 'no_current_day' });
+    const local = getDashboardData();
+    const dayIds = listDayIds();
+    // 若当日有数据但尚未写入 data 文件，从 cache 补充
+    const allDayIds = new Set(dayIds);
+    if (local.currentDayId && !allDayIds.has(local.currentDayId)) {
+      allDayIds.add(local.currentDayId);
     }
 
-    // Prefer reading the day file directly (contains PerKey), fall back to cache if needed.
-    let day = readDay(dayId);
-    if (!day) {
-      const cached = local.dayData && local.dayData[dayId];
-      day = cached ? { dayId, totals: cached.totals || {}, perKey: cached.perKey || {} } : null;
+    const uploaded = { keys: 0, mouseLeft: 0, mouseRight: 0, wheelUp: 0, wheelDown: 0, perKeyCount: 0, daysCount: 0 };
+    const errors = [];
+
+    for (const dayId of [...allDayIds].sort()) {
+      let day = readDay(dayId);
+      if (!day && local.dayData && local.dayData[dayId]) {
+        const cached = local.dayData[dayId];
+        day = { dayId, totals: cached.totals || {}, perKey: cached.perKey || {} };
+      }
+      if (!day) continue;
+
+      const totals = day.totals || {};
+      const perKey = day.perKey || {};
+      const payload = {
+        user_id: currentUser.id,
+        device_id: currentDevice.id,
+        day_id: dayId,
+        keys_total: toInt(totals.keyboard),
+        mouse_left_total: toInt(totals.mouseLeft),
+        mouse_right_total: toInt(totals.mouseRight),
+        wheel_up_total: toInt(totals.wheelUp),
+        wheel_down_total: toInt(totals.wheelDown),
+        per_key_total: perKey,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabaseAdmin
+        .from('daily_rollups')
+        .upsert(payload, { onConflict: 'user_id,device_id,day_id' });
+
+      if (error) {
+        errors.push({ dayId, message: error.message });
+        continue;
+      }
+
+      uploaded.keys += toInt(totals.keyboard);
+      uploaded.mouseLeft += toInt(totals.mouseLeft);
+      uploaded.mouseRight += toInt(totals.mouseRight);
+      uploaded.wheelUp += toInt(totals.wheelUp);
+      uploaded.wheelDown += toInt(totals.wheelDown);
+      uploaded.perKeyCount += Object.keys(perKey).length;
+      uploaded.daysCount += 1;
     }
-    if (!day) {
-      return res.status(404).json({ error: 'day_not_found', dayId });
-    }
 
-    const totals = day.totals || {};
-    const perKey = day.perKey || {};
-
-    const payload = {
-      user_id: currentUser.id,
-      device_id: currentDevice.id,
-      day_id: dayId,
-      keys_total: toInt(totals.keyboard),
-      mouse_left_total: toInt(totals.mouseLeft),
-      mouse_right_total: toInt(totals.mouseRight),
-      wheel_up_total: toInt(totals.wheelUp),
-      wheel_down_total: toInt(totals.wheelDown),
-      per_key_total: perKey,
-      updated_at: new Date().toISOString()
-    };
-
-    const { data, error } = await supabaseAdmin
-      .from('daily_rollups')
-      .upsert(payload, { onConflict: 'user_id,device_id,day_id' })
-      .select('*')
-      .single();
-    if (error) {
-      return res.status(500).json({ error: 'upload_failed', message: error.message });
-    }
-
-    // touch last_seen_at for this device
     await supabaseAdmin
       .from('devices')
       .update({ last_seen_at: new Date().toISOString() })
@@ -693,15 +832,8 @@ app.post('/api/cloud/sync/uploadToday', async (req, res) => {
 
     res.json({
       ok: true,
-      dayId,
-      uploaded: {
-        keys: data.keys_total,
-        mouseLeft: data.mouse_left_total,
-        mouseRight: data.mouse_right_total,
-        wheelUp: data.wheel_up_total,
-        wheelDown: data.wheel_down_total,
-        perKeyCount: data.per_key_total ? Object.keys(data.per_key_total).length : 0
-      }
+      uploaded,
+      errors: errors.length ? errors : undefined
     });
   } catch (e) {
     console.error('[cloud] uploadToday failed', e);

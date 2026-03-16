@@ -4,6 +4,7 @@ const fs = require('fs');
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const WIDGET_CMD_FILE = path.join(APP_ROOT, 'keycounter_widget_cmd.txt');
+const CENTER_WIDGET_FILE = path.join(APP_ROOT, 'keycounter_center_widget.txt');
 const WIDGET_PID_FILE = path.join(APP_ROOT, 'keycounter_widget_pid.txt');
 // 基准尺寸：宽 270，高 45，对应 SizePercent=30
 const SIZE_BASE_W = 230;
@@ -189,18 +190,45 @@ function createWindow() {
     overlayWins = [];
   }
 
+  const MENU_LABELS = {
+    zh: {
+      openDashboard: '打开仪表盘',
+      preferences: '设置',
+      switchToLight: '切换浅色模式',
+      switchToDark: '切换深色模式',
+      updateCheck: '检查更新',
+      openSource: '开源地址',
+      reset: '重置'
+    },
+    en: {
+      openDashboard: 'Open Dashboard',
+      preferences: 'Preferences',
+      switchToLight: 'Switch to light',
+      switchToDark: 'Switch to dark',
+      updateCheck: 'Update check',
+      openSource: 'Open source',
+      reset: 'Reset'
+    }
+  };
+
+  function getMenuLabels() {
+    const lang = ((getGuiIni().Preferences || {}).Language || 'zh').toLowerCase() === 'en' ? 'en' : 'zh';
+    return MENU_LABELS[lang] || MENU_LABELS.zh;
+  }
+
   function showWidgetContextMenu(screenX, screenY) {
     const isDark = (getGuiIni().Preferences || {}).Theme === 'dark';
+    const L = getMenuLabels();
     const menu = Menu.buildFromTemplate([
-      { label: 'Open Dashboard', click: () => writeWidgetCmd('OpenDashboard') },
-      { label: 'Preferences', click: () => writeWidgetCmd('Preferences') },
+      { label: L.openDashboard, click: () => writeWidgetCmd('OpenDashboard') },
+      { label: L.preferences, click: () => writeWidgetCmd('Preferences') },
       { type: 'separator' },
-      { label: isDark ? '切换浅色模式' : '切换深色模式', click: toggleThemeAndApply },
+      { label: isDark ? L.switchToLight : L.switchToDark, click: toggleThemeAndApply },
       { type: 'separator' },
-      { label: 'Update check', click: () => writeWidgetCmd('UpdateCheck') },
-      { label: 'Open source', click: () => writeWidgetCmd('OpenSource') },
+      { label: L.updateCheck, click: () => writeWidgetCmd('UpdateCheck') },
+      { label: L.openSource, click: () => writeWidgetCmd('OpenSource') },
       { type: 'separator' },
-      { label: 'Reset', click: () => writeWidgetCmd('Reset') }
+      { label: L.reset, click: () => writeWidgetCmd('Reset') }
     ]);
     lastContextMenu = menu;
     menu.on('menu-will-close', () => { closeContextMenuAndOverlay(); });
@@ -261,6 +289,26 @@ function createWindow() {
   const tick = () => {
     if (!win || win.isDestroyed()) return;
     try {
+      if (fs.existsSync(CENTER_WIDGET_FILE)) {
+        try { fs.unlinkSync(CENTER_WIDGET_FILE); } catch (_) {}
+        const prefs = getPrefs();
+        const primary = screen.getPrimaryDisplay();
+        const workArea = primary.workArea;
+        const x = Math.floor(workArea.x + (workArea.width - prefs.width) / 2);
+        const y = Math.floor(workArea.y + (workArea.height - prefs.height) / 2);
+        win.setPosition(x, y);
+        const obj = parseIni(GUI_INI);
+        if (!obj.Floating) obj.Floating = {};
+        obj.Floating.X = String(x);
+        obj.Floating.Y = String(y);
+        const lines = [];
+        for (const [sec, kvs] of Object.entries(obj)) {
+          lines.push(`[${sec}]`);
+          for (const [k, v] of Object.entries(kvs)) lines.push(`${k}=${v}`);
+          lines.push('');
+        }
+        fs.writeFileSync(GUI_INI, lines.join('\n'));
+      }
       const counts = getTodayCounts();
       const countsStr = counts.keyboard + ',' + counts.mouse;
       const health = getHealthStatus();

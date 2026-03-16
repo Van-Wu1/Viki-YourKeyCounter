@@ -12,8 +12,8 @@
     <aside class="sidebar">
       <div class="sidebar-brand">KeyCounter</div>
       <nav class="sidebar-nav">
-        <a href="#" class="nav-item active" data-page="dashboard">Dashboard</a>
-        <a href="#" class="nav-item" data-page="preferences">Preferences</a>
+        <a href="#" class="nav-item active" data-page="dashboard" data-i18n="nav.dashboard">仪表盘</a>
+        <a href="#" class="nav-item" data-page="preferences" data-i18n="nav.preferences">设置</a>
       </nav>
       <div class="sidebar-user" id="sidebarUserInfo"></div>
       <div class="sidebar-footer">
@@ -24,9 +24,9 @@
     <main class="main">
       <header class="header">
         <div class="header-title-row">
-          <span class="header-title" id="headerTitle">Dashboard</span>
-          <button type="button" class="header-export-btn" id="headerExportBtn" title="导出数据" aria-label="导出">导出</button>
-          <button type="button" class="header-refresh-btn" id="headerRefreshBtn" title="刷新数据" aria-label="刷新">
+          <span class="header-title" id="headerTitle">仪表盘</span>
+          <button type="button" class="header-export-btn" id="headerExportBtn" data-i18n-title="header.export" title="导出数据" aria-label="导出" data-i18n="header.export">导出</button>
+          <button type="button" class="header-refresh-btn" id="headerRefreshBtn" data-i18n-title="header.refresh" title="刷新数据" aria-label="刷新">
             <svg class="header-refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 4v6h-6M1 20v-6h6"/>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
@@ -43,13 +43,13 @@
       <section class="activity-section">
         <div class="activity-header">
           <div class="activity-title-block">
-            <h3 class="activity-title">牛马积极性</h3>
+            <h3 class="activity-title" data-i18n="activity.title">牛马积极性</h3>
             <div class="activity-total" id="activityTotal">0</div>
           </div>
           <div class="activity-tabs">
-            <button type="button" class="activity-tab active" data-mode="all">All</button>
-            <button type="button" class="activity-tab" data-mode="keys">Keys</button>
-            <button type="button" class="activity-tab" data-mode="mouse">Mouse</button>
+            <button type="button" class="activity-tab active" data-mode="all" data-i18n="activity.all">All</button>
+            <button type="button" class="activity-tab" data-mode="keys" data-i18n="activity.keys">Keys</button>
+            <button type="button" class="activity-tab" data-mode="mouse" data-i18n="activity.mouse">Mouse</button>
           </div>
         </div>
         <div class="activity-body">
@@ -71,50 +71,50 @@
         <div class="activity-footer">
           <div class="activity-stats">
             <div class="activity-stat">
-              <span class="activity-stat-label">最积极的月份</span>
+              <span class="activity-stat-label" data-i18n="activity.mostActiveMonth">最积极的月份</span>
               <span class="activity-stat-value" id="mostActiveMonth">-</span>
             </div>
             <div class="activity-stat">
-              <span class="activity-stat-label">最积极的天</span>
+              <span class="activity-stat-label" data-i18n="activity.mostActiveDay">最积极的天</span>
               <span class="activity-stat-value" id="mostActiveDay">-</span>
             </div>
           </div>
           <div class="activity-legend">
-            <span>Fewer</span>
+            <span data-i18n="activity.fewer">Fewer</span>
             <span class="activity-legend-cell" data-level="0"></span>
             <span class="activity-legend-cell" data-level="1"></span>
             <span class="activity-legend-cell" data-level="2"></span>
             <span class="activity-legend-cell" data-level="3"></span>
             <span class="activity-legend-cell" data-level="4"></span>
-            <span>More</span>
+            <span data-i18n="activity.more">More</span>
           </div>
         </div>
       </section>
 
       <section class="range-buttons">
-        <button type="button" class="range-btn active" data-range="day">当日</button>
-        <button type="button" class="range-btn" data-range="week">本周</button>
-        <button type="button" class="range-btn" data-range="month">本月</button>
-        <button type="button" class="range-btn" data-range="all" disabled>自定义</button>
+        <button type="button" class="range-btn active" data-range="day" data-i18n="range.day">当日</button>
+        <button type="button" class="range-btn" data-range="week" data-i18n="range.week">本周</button>
+        <button type="button" class="range-btn" data-range="month" data-i18n="range.month">本月</button>
+        <button type="button" class="range-btn" data-range="all" disabled data-i18n="range.custom">自定义</button>
       </section>
 
       <section class="panel panel-full">
-        <h3 class="panel-title">键位排行 (Top 20)</h3>
+        <h3 class="panel-title" data-i18n="panel.keyRank">键位排行 (Top 20)</h3>
         <div id="keyChart" class="chart chart-bar"></div>
       </section>
 
       <section class="panel panel-full">
-        <h3 class="panel-title">鼠标明细</h3>
+        <h3 class="panel-title" data-i18n="panel.mouseDetail">鼠标明细</h3>
         <div id="mouseChart" class="chart chart-mouse"></div>
       </section>
 
       <section class="panel panel-chart">
         <div class="panel-title-row">
-          <h3 class="panel-title">腱鞘炎趋势</h3>
+          <h3 class="panel-title" data-i18n="panel.trend">腱鞘炎趋势</h3>
           <div class="trend-btns">
-            <button type="button" class="trend-btn active" data-trend="week">每周</button>
-            <button type="button" class="trend-btn" data-trend="month">每月</button>
-            <button type="button" class="trend-btn" data-trend="year">每年</button>
+            <button type="button" class="trend-btn active" data-trend="week" data-i18n="panel.trendWeek">每周</button>
+            <button type="button" class="trend-btn" data-trend="month" data-i18n="panel.trendMonth">每月</button>
+            <button type="button" class="trend-btn" data-trend="year" data-i18n="panel.trendYear">每年</button>
           </div>
         </div>
         <div id="chart" class="chart"></div>
@@ -125,118 +125,113 @@
         <section class="panel panel-full prefs-panel">
           <div class="prefs-layout">
             <div class="prefs-left">
-              <h3 class="panel-title">悬浮框设置</h3>
-              <p class="prefs-placeholder">调整悬浮框的尺寸、不透明度和圆角，保存后立即生效。</p>
+              <h3 class="panel-title" data-i18n="prefs.widgetTitle">悬浮框设置</h3>
+              <p class="prefs-placeholder" data-i18n="prefs.widgetDesc">调整悬浮框的尺寸、不透明度和圆角，保存后立即生效。</p>
               <div class="prefs-form">
             <div class="prefs-row prefs-row-theme">
-              <label>主题</label>
+              <label data-i18n="prefs.language">语言</label>
               <div class="theme-toggle">
-                <button type="button" class="theme-btn active" data-theme="light">浅色</button>
-                <button type="button" class="theme-btn" data-theme="dark">深色</button>
+                <button type="button" class="lang-btn active" data-lang="zh">中文</button>
+                <button type="button" class="lang-btn" data-lang="en">English</button>
+              </div>
+            </div>
+            <div class="prefs-row prefs-row-theme">
+              <label data-i18n="prefs.theme">主题</label>
+              <div class="theme-toggle">
+                <button type="button" class="theme-btn active" data-theme="light" data-i18n="prefs.themeLight">浅色</button>
+                <button type="button" class="theme-btn" data-theme="dark" data-i18n="prefs.themeDark">深色</button>
               </div>
             </div>
             <div class="prefs-row">
-              <label>尺寸</label>
+              <label data-i18n="prefs.size">尺寸</label>
               <input type="range" id="prefSizePercent" min="5" max="100" step="5" value="30" />
               <span class="prefs-value" id="prefSizePercentVal">30</span>
-              <span class="prefs-unit">%（30%=200×45px，等比缩放）</span>
+              <span class="prefs-unit" data-i18n="prefs.sizeUnit">%（30%=200×45px，等比缩放）</span>
             </div>
             <div class="prefs-row">
-              <label>不透明度</label>
+              <label data-i18n="prefs.opacity">不透明度</label>
               <input type="range" id="prefTransparency" min="0" max="100" />
               <span class="prefs-value" id="prefTransparencyVal">94</span>
               <span class="prefs-unit">%</span>
             </div>
             <div class="prefs-row">
-              <label>圆角</label>
+              <label data-i18n="prefs.borderRadius">圆角</label>
               <input type="number" id="prefBorderRadius" min="0" max="30" step="2" />
               <span class="prefs-unit">px</span>
             </div>
-            <h4 class="prefs-section-title">健康提醒</h4>
-            <div class="prefs-subsection">久坐提醒（红点）</div>
+            <hr class="prefs-separator" />
+            <h4 class="prefs-section-title" data-i18n="prefs.healthTitle">健康提醒</h4>
+            <div class="prefs-subsection" data-i18n="prefs.sittingSub">久坐提醒（红点）</div>
             <div class="prefs-row prefs-row-checkbox">
-              <label><input type="checkbox" id="prefSittingEnabled" checked /> 启用久坐提醒</label>
+              <label><input type="checkbox" id="prefSittingEnabled" checked /> <span data-i18n="prefs.sittingEnabled">启用久坐提醒</span></label>
             </div>
             <div class="prefs-row">
-              <label>连续操作</label>
+              <label data-i18n="prefs.sittingMinutes">连续操作</label>
               <input type="number" id="prefSittingMinutes" min="30" max="480" step="10" value="60" />
-              <span class="prefs-unit">分钟后提醒（中途休息≥5分钟视为断开）</span>
+              <span class="prefs-unit" data-i18n="prefs.sittingUnit">分钟后提醒（中途休息≥5分钟视为断开）</span>
             </div>
-            <div class="prefs-subsection">腱鞘炎提醒（黄点）</div>
+            <div class="prefs-subsection" data-i18n="prefs.tenoSub">腱鞘炎提醒（黄点）</div>
             <div class="prefs-row prefs-row-checkbox">
-              <label><input type="checkbox" id="prefTenosynovitisEnabled" checked /> 启用腱鞘炎提醒</label>
+              <label><input type="checkbox" id="prefTenosynovitisEnabled" checked /> <span data-i18n="prefs.tenoEnabled">启用腱鞘炎提醒</span></label>
             </div>
             <div class="prefs-row">
-              <label>键盘阈值</label>
+              <label data-i18n="prefs.keyboardThreshold">键盘阈值</label>
               <input type="number" id="prefKeyboardThreshold" min="0" step="1000" placeholder="50000" />
-              <span class="prefs-unit">次/日（0=不限制）</span>
+              <span class="prefs-unit" data-i18n="prefs.thresholdUnit">次/日（0=不限制）</span>
             </div>
             <div class="prefs-row">
-              <label>鼠标阈值</label>
+              <label data-i18n="prefs.mouseThreshold">鼠标阈值</label>
               <input type="number" id="prefMouseThreshold" min="0" step="1000" placeholder="10000" />
-              <span class="prefs-unit">次/日（0=不限制）</span>
+              <span class="prefs-unit" data-i18n="prefs.thresholdUnit">次/日（0=不限制）</span>
             </div>
-            <div class="prefs-subsection">喝水提醒（蓝点）</div>
+            <div class="prefs-subsection" data-i18n="prefs.waterSub">喝水提醒（蓝点）</div>
             <div class="prefs-row prefs-row-checkbox">
-              <label><input type="checkbox" id="prefWaterEnabled" checked /> 启用喝水提醒</label>
+              <label><input type="checkbox" id="prefWaterEnabled" checked /> <span data-i18n="prefs.waterEnabled">启用喝水提醒</span></label>
             </div>
             <div class="prefs-row">
-              <label>提醒间隔</label>
+              <label data-i18n="prefs.waterMinutes">提醒间隔</label>
               <input type="number" id="prefWaterMinutes" min="15" max="180" value="45" />
-              <span class="prefs-unit">分钟</span>
+              <span class="prefs-unit" data-i18n="prefs.waterUnit">分钟</span>
             </div>
             <div class="prefs-row">
-              <label>冷却时间</label>
+              <label data-i18n="prefs.cooldown">冷却时间</label>
               <input type="number" id="prefReminderCooldown" min="1" max="60" value="1" />
-              <span class="prefs-unit">分钟（各模块提醒后冷却）</span>
+              <span class="prefs-unit" data-i18n="prefs.cooldownUnit">分钟（各模块提醒后冷却）</span>
             </div>
-            <h4 class="prefs-section-title">云同步 / 账号（实验性）</h4>
-            <p class="prefs-placeholder">登录 Supabase 账号后，可以在多台设备之间同步统计数据。</p>
-            <div class="prefs-row">
-              <label for="cloudEmail">邮箱</label>
-              <input type="email" id="cloudEmail" placeholder="用于登录的邮箱" />
-            </div>
-            <div class="prefs-row">
-              <label for="cloudPassword">密码</label>
-              <input type="password" id="cloudPassword" placeholder="密码" />
-            </div>
-            <div class="prefs-row">
-              <button type="button" id="cloudLoginBtn">登录云账号</button>
-              <span class="prefs-hint" id="cloudStatusText"></span>
-            </div>
+            <button type="button" class="prefs-save-btn" id="prefsSaveBtn" data-i18n="prefs.saveBtn">保存设置</button>
+            <hr class="prefs-separator" />
             <div class="prefs-row" id="cloudAccountInfo" style="display:none;">
-              <label>当前计划</label>
+              <label data-i18n="prefs.currentPlan">当前计划</label>
               <div class="prefs-cloud-account">
                 <div id="cloudPlanText"></div>
                 <div id="cloudPlanHint" class="prefs-cloud-hint"></div>
               </div>
             </div>
             <div class="prefs-row" id="cloudDevicesRow" style="display:none;">
-              <label>设备列表</label>
+              <label data-i18n="prefs.deviceNaming">设备命名</label>
               <div class="prefs-cloud-devices">
                 <ul id="cloudDevicesList" class="prefs-cloud-device-list"></ul>
-                <div class="prefs-hint">可在此为设备改名（例如“下班快乐机”“牛马机”）。</div>
+
               </div>
             </div>
             <div class="prefs-row" id="cloudSyncRow" style="display:none;">
-              <label>手动同步</label>
+              <label data-i18n="prefs.cloudSync">云同步</label>
               <div class="prefs-cloud-sync">
-                <button type="button" id="cloudUploadTodayBtn">上传今日数据</button>
+                <button type="button" id="cloudUploadTodayBtn" data-i18n="prefs.oneClickSync">一键同步</button>
                 <span class="prefs-hint" id="cloudUploadTodayStatus"></span>
+                <div class="prefs-hint prefs-sync-time" id="cloudLastSyncTime"></div>
               </div>
             </div>
-            <div class="prefs-row">
+            <div class="prefs-row" id="cloudLogoutRow" style="display:none;">
               <label>账号</label>
               <div class="prefs-cloud-sync">
-                <button type="button" id="cloudLogoutBtn">退出登录</button>
-                <span class="prefs-hint">退出后需重新登录才能继续统计与云同步。</span>
+                <button type="button" id="cloudLogoutBtn" data-i18n="prefs.logout">退出登录</button>
               </div>
             </div>
-            <button type="button" class="prefs-save-btn" id="prefsSaveBtn">保存设置</button>
               </div>
             </div>
             <div class="prefs-donation">
-              <p class="prefs-donation-text">！😋打赏作者更有力气😋！</p>
+              <p class="prefs-donation-text" data-i18n="prefs.donation">！😋打赏作者更有力气😋！</p>
               <img src="/public/moneycome.jpg" alt="打赏" class="prefs-donation-qr" onerror="this.style.display='none'" />
             </div>
           </div>

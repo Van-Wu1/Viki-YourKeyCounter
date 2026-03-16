@@ -39,6 +39,7 @@ widget/*.zip
 keycounter_widget_cmd.txt
 keycounter_health_cmd.txt
 keycounter_widget_pid.txt
+keycounter_center_widget.txt
 *.log
 *.tmp
 *.temp
