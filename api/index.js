@@ -884,6 +884,48 @@ app.get('/api/days', (req, res) => {
   res.json({ days });
 });
 
+// Days-lite：只返回每日 totals（不给 perKey），用于 Dashboard 首屏快速渲染
+app.get('/api/days-lite', (req, res) => {
+  const { from, to } = req.query;
+  const cached = getDashboardData();
+  const filtered = cached.days.filter((id) => {
+    if (from && id < from) return false;
+    if (to && id > to) return false;
+    return true;
+  });
+  const days = filtered
+    .map((id) => {
+      const d = cached.dayData[id];
+      return d ? { dayId: id, totals: d.totals } : null;
+    })
+    .filter(Boolean);
+  res.json({ days });
+});
+
+// PerKey Top：按日期范围聚合 PerKey 并返回 TopN（避免把全量 perKey 下发到前端）
+app.get('/api/perkey/top', (req, res) => {
+  const { from, to } = req.query;
+  const limit = Math.max(1, Math.min(200, toInt(req.query.limit || '20')));
+  const cached = getDashboardData();
+  const filteredIds = cached.days.filter((id) => {
+    if (from && id < from) return false;
+    if (to && id > to) return false;
+    return true;
+  });
+  const agg = {};
+  for (const id of filteredIds) {
+    const d = cached.dayData[id];
+    const perKey = d?.perKey || {};
+    for (const [k, v] of Object.entries(perKey)) {
+      agg[k] = (agg[k] || 0) + toInt(v);
+    }
+  }
+  const entries = Object.entries(agg);
+  entries.sort((a, b) => (toInt(b[1]) - toInt(a[1])));
+  const top = entries.slice(0, limit).map(([k, v]) => ({ key: k, count: toInt(v) }));
+  res.json({ ok: true, from: from || null, to: to || null, limit, top });
+});
+
 // Full dashboard data (currentDayId, totals, days, dayData, guiIni)
 app.get('/api/data', (req, res) => {
   res.json(getDashboardData());

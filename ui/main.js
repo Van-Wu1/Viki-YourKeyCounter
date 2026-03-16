@@ -9,6 +9,7 @@
   let keyChartInstance = null;
   let mouseChartInstance = null;
   let trendChartInstance = null;
+  let perKeyTop = []; // [{key,count}]，异步加载
   let cloudState = {
     user: null,
     plan: null,
@@ -108,25 +109,90 @@
     cloudState = { ...cloudState, ...partial };
   }
 
+  function buildDayDataFromDaysList(daysList) {
+    const dayData = {};
+    for (const d of (daysList || [])) {
+      if (!d || !d.dayId) continue;
+      dayData[d.dayId] = { totals: d.totals || {}, perKey: {} };
+    }
+    return dayData;
+  }
+
+  function computeRangeFromData(days, dayData, range) {
+    const filtered = filterByRange(days, dayData, range);
+    if (!filtered.length) return { from: null, to: null };
+    const ids = filtered.map((d) => d.dayId).filter(Boolean).sort();
+    return { from: ids[0] || null, to: ids[ids.length - 1] || null };
+  }
+
+  async function loadPerKeyTopAsync() {
+    const data = getData();
+    const days = data.days || [];
+    const dayData = data.dayData || {};
+    const { from, to } = computeRangeFromData(days, dayData, currentRange);
+    if (!from || !to) {
+      perKeyTop = [];
+      renderKeyChartTop(perKeyTop);
+      return;
+    }
+    // 目前先对本地数据做异步 Top20；云端维持原逻辑（后续再拆）
+    if (cloudState.user && cloudState.plan?.plan === 'pro') return;
+    try {
+      const qs = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=20`;
+      const res = await fetch('/api/perkey/top?' + qs);
+      if (!res.ok) throw new Error(res.statusText);
+      const json = await res.json();
+      perKeyTop = (json && json.ok && Array.isArray(json.top)) ? json.top : [];
+      renderKeyChartTop(perKeyTop);
+    } catch (e) {
+      console.warn('loadPerKeyTopAsync failed:', e);
+    }
+  }
+
   async function loadData() {
     const activeViewId = cloudState.activeViewId ?? 'all';
     const useCloud = cloudState.user && cloudState.plan?.plan === 'pro';
-    const url = useCloud
-      ? (activeViewId === 'all'
-        ? '/api/cloud/data?view=all'
-        : '/api/cloud/data?view=device&deviceId=' + encodeURIComponent(activeViewId))
-      : '/api/data';
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(res.statusText);
-      const json = await res.json();
-      window.__KEYCOUNTER_DATA__ = {
-        currentDayId: json.currentDayId,
-        totals: json.totals || {},
-        days: json.days || [],
-        dayData: json.dayData || {}
-      };
-      window.__KEYCOUNTER_GUI_INI__ = json.guiIni || { Floating: {}, Preferences: {} };
+      if (useCloud) {
+        const url = activeViewId === 'all'
+          ? '/api/cloud/data?view=all'
+          : '/api/cloud/data?view=device&deviceId=' + encodeURIComponent(activeViewId);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        const json = await res.json();
+        window.__KEYCOUNTER_DATA__ = {
+          currentDayId: json.currentDayId,
+          totals: json.totals || {},
+          days: json.days || [],
+          dayData: json.dayData || {}
+        };
+        window.__KEYCOUNTER_GUI_INI__ = json.guiIni || { Floating: {}, Preferences: {} };
+      } else {
+        // 本地：先加载轻量 summary + days-lite，加速首屏
+        const sRes = await fetch('/api/summary');
+        if (!sRes.ok) throw new Error(sRes.statusText);
+        const summary = await sRes.json();
+        const dRes = await fetch('/api/days-lite');
+        if (!dRes.ok) throw new Error(dRes.statusText);
+        const daysJson = await dRes.json();
+        const daysList = daysJson.days || [];
+        const days = daysList.map((d) => d.dayId).filter(Boolean).sort();
+        window.__KEYCOUNTER_DATA__ = {
+          currentDayId: summary.currentDayId,
+          totals: summary.totals || {},
+          days,
+          dayData: buildDayDataFromDaysList(daysList)
+        };
+        // GUI 配置仍从 /api/data 取会变慢，这里直接取 /api/data 会抵消优化；
+        // 但主题/语言在首屏也重要，因此这里单独再异步拉一次 /api/data 的 guiIni（不阻塞首屏）。
+        window.__KEYCOUNTER_GUI_INI__ = { Floating: {}, Preferences: {} };
+        fetch('/api/data').then((r) => r.ok ? r.json() : null).then((j) => {
+          if (j && j.guiIni) {
+            window.__KEYCOUNTER_GUI_INI__ = j.guiIni;
+            applyI18n();
+          }
+        }).catch(() => {});
+      }
       return true;
     } catch (e) {
       console.error('loadData failed:', e);
@@ -180,7 +246,10 @@
         setCloudState({ activeViewId: b.id });
         renderDeviceViewButtons();
         const ok = await loadData();
-        if (ok) render();
+        if (ok) {
+          render();
+          loadPerKeyTopAsync();
+        }
       };
       wrap.appendChild(el);
     });
@@ -481,6 +550,7 @@
         currentRange = btn.dataset.range;
         const data = getData();
         updateVisualizations(data.days || [], data.dayData || {}, currentRange);
+        loadPerKeyTopAsync();
       };
     });
   }
@@ -489,7 +559,8 @@
     const filtered = filterByRange(days, dayData, range);
     const agg = aggregateForRange(filtered);
 
-    renderKeyChart(agg.perKey);
+    // perKey 改为异步加载 Top20；这里先用已有缓存渲染一次（可能为空）
+    renderKeyChartTop(perKeyTop);
     renderMouseChart(agg.totals);
   }
 
@@ -543,27 +614,42 @@
     });
   }
 
-  function renderKeyChart(perKey) {
+  function renderKeyChartTop(top) {
     const chartDom = document.getElementById('keyChart');
     if (!chartDom) return;
 
-    const entries = Object.entries(perKey || {}).map(([k, v]) => [k, v]);
-    entries.sort((a, b) => (b[1] || 0) - (a[1] || 0));
-    const top = entries.slice(0, 20);
+    let list = Array.isArray(top) ? top : [];
 
     if (!keyChartInstance) keyChartInstance = echarts.init(chartDom);
-    if (top.length === 0) {
-      keyChartInstance.setOption({ title: { text: t('chart.noData'), left: 'center', top: 'center' } });
-      return;
+    if (list.length === 0) {
+      // 回退：直接从当前 dayData 聚合 Top20，避免异步接口异常导致一直无数据
+      const data = getData();
+      const days = data.days || [];
+      const dayData = data.dayData || {};
+      const filtered = filterByRange(days, dayData, currentRange);
+      const agg = {};
+      for (const d of filtered) {
+        const perKey = (d && d.perKey) || {};
+        for (const [k, v] of Object.entries(perKey)) {
+          agg[k] = (agg[k] || 0) + (v || 0);
+        }
+      }
+      const entries = Object.entries(agg);
+      entries.sort((a, b) => ((b[1] || 0) - (a[1] || 0)));
+      list = entries.slice(0, 20).map(([k, v]) => ({ key: k, count: v }));
+      if (!list.length) {
+        keyChartInstance.setOption({ title: { text: t('chart.noData'), left: 'center', top: 'center' } });
+        return;
+      }
     }
     keyChartInstance.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: 48, right: 24, top: 24, bottom: 40 },
-      xAxis: { type: 'category', data: top.map(([k]) => k), axisLabel: { interval: 0 } },
+      xAxis: { type: 'category', data: list.map((x) => x.key), axisLabel: { interval: 0 } },
       yAxis: { type: 'value' },
       series: [{
         type: 'bar',
-        data: top.map(([, v]) => v),
+        data: list.map((x) => x.count),
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: '#4ade80' },
@@ -1125,6 +1211,7 @@
     applyI18n();
     try {
       render();
+      loadPerKeyTopAsync();
     } catch (renderErr) {
       console.error('[KeyCounter] render failed:', renderErr);
     }

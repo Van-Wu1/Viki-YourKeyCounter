@@ -4,7 +4,7 @@ Persistent
 SetWorkingDir A_ScriptDir
 
 ; 版本标识
-scriptVersion := "v0.3-perkey-cached"
+scriptVersion := "0.9.0-beta.1"
 try A_TrayMenu.Tip := "KeyCounter " scriptVersion
 
 ;-------------------------
@@ -75,9 +75,15 @@ StartApi() {
     }
     ; 启动前释放 apiPort，避免旧 API 进程未退出导致新进程加载不到 .env
     try RunWait('powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ' apiPort ' -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"', , "Hide")
-    Sleep(300)
+    Sleep(200)
     try Run('node "' apiScript '"', A_ScriptDir, "Hide", &apiPid)
-    Sleep(2000)
+    ; 用健康探针替代固定 2 秒等待：最多约 1 秒
+    Loop 10 {
+        Sleep(100)
+        resp := CloudHttp("GET", "/api/summary")
+        if (resp["Status"] = 200)
+            break
+    }
 }
 
 TryAutoLogin() {
@@ -629,14 +635,19 @@ OpenDashboardToPrefs() {
 OpenDashboardCore() {
     global apiPid, dashboardPid, dashboardHash, apiPort
     SetWorkingDir(A_ScriptDir)
-    if (apiPid && apiPid != 0) {
-        try ProcessClose(apiPid)
-        apiPid := 0
-        Sleep(500)
+    ; 不要“打开面板就重启 API”。优先复用已启动的 API；
+    ; 如果 API 不可用，再启动一次并快速等待可用。
+    resp := CloudHttp("GET", "/api/summary")
+    if (resp["Status"] != 200) {
+        StartApi()
+        ; 等待 API 就绪（最多约 1 秒）
+        Loop 10 {
+            Sleep(100)
+            resp2 := CloudHttp("GET", "/api/summary")
+            if (resp2["Status"] = 200)
+                break
+        }
     }
-    apiScript := A_ScriptDir "\api\index.js"
-    try Run('node "' apiScript '"', A_ScriptDir, "Hide", &apiPid)
-    Sleep(2000)
     edgePath := A_ProgramFiles "\Microsoft\Edge\Application\msedge.exe"
     edgeExists := FileExist(edgePath)
     if (!edgeExists) {
