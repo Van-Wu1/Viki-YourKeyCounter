@@ -11,6 +11,7 @@ try A_TrayMenu.Tip := "KeyCounter " scriptVersion
 ; 配置
 ;-------------------------
 global StatsBoundaryHour := 4
+global apiPort := 55555
 global isLoggedIn := 0
 global loggedInEmail := ""
 
@@ -76,6 +77,9 @@ StartApi() {
         apiPid := 0
         Sleep(500)
     }
+    ; 启动前释放 apiPort，避免旧 API 进程未退出导致新进程加载不到 .env
+    try RunWait('powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ' apiPort ' -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"', , "Hide")
+    Sleep(300)
     try Run('node "' apiScript '"', A_ScriptDir, "Hide", &apiPid)
     Sleep(2000)
 }
@@ -111,7 +115,7 @@ ShowLoginGui() {
     emailEdit := loginGui.AddEdit("w260 vEmail")
     loginGui.AddText("xm y+8", "密码：")
     pwdEdit := loginGui.AddEdit("w260 Password vPassword")
-    hintText := loginGui.AddText("xm y+6 cGray", "")
+    hintText := loginGui.AddText("xm y+6 cGray w260 h24", "")
     btnLogin := loginGui.AddButton("xm y+10 w100", "登录")
     btnCancel := loginGui.AddButton("x+8 w80", "退出")
     loggedIn := false
@@ -137,7 +141,13 @@ ShowLoginGui() {
             . '}'
         resp := CloudHttp("POST", "/api/cloud/login", body)
         if (resp["Status"] != 200 || !RegExMatch(resp["Text"], '"ok"\s*:\s*true')) {
-            hintText.Text := "登录失败，请检查邮箱或密码。"
+            if (RegExMatch(resp["Text"], 'cloud_not_configured')) {
+                hintText.Text := "云未配置：请在项目根目录创建 .env 并填入 Supabase 配置（见 README）。"
+            } else if (resp["Status"] = 0) {
+                hintText.Text := "无法连接本地 API，请确认 API 已启动（端口 " apiPort "）。"
+            } else {
+                hintText.Text := "登录失败，请检查邮箱或密码。"
+            }
             btnLogin.Enabled := true
             return
         }
@@ -178,7 +188,8 @@ ShowWelcome() {
 }
 
 CloudHttp(method, path, body := "") {
-    url := "http://localhost:3000" path
+    global apiPort
+    url := "http://localhost:" apiPort path
     http := ComObject("WinHttp.WinHttpRequest.5.1")
     http.Open(method, url, false)
     if (method = "POST" || method = "PUT")
@@ -642,7 +653,7 @@ OpenDashboardToPrefs() {
 }
 
 OpenDashboardCore() {
-    global apiPid, dashboardPid, dashboardHash
+    global apiPid, dashboardPid, dashboardHash, apiPort
     SetWorkingDir(A_ScriptDir)
     if (apiPid && apiPid != 0) {
         try ProcessClose(apiPid)
@@ -661,7 +672,7 @@ OpenDashboardCore() {
             edgeExists := true
         }
     }
-    dashboardUrl := "http://localhost:3000/" (dashboardHash ?? "")
+    dashboardUrl := "http://localhost:" apiPort "/" (dashboardHash ?? "")
     if (edgeExists) {
         try Run('"' edgePath '" --app="' dashboardUrl '" --window-size=900,600', , , &dashboardPid)
         SetTimer(BringDashboardToFront, 500)

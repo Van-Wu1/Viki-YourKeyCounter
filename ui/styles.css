@@ -721,8 +721,9 @@ body {
 }
 
 .login-hint {
-  min-height: 18px;
+  min-height: 24px;
   font-size: 12px;
+  line-height: 1.5;
   color: #6b7280;
 }
 
