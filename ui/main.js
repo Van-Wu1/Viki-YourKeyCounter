@@ -19,7 +19,7 @@
   const I18N = {
     zh: {
       nav: { dashboard: '仪表盘', preferences: '设置' },
-      header: { export: '导出', refresh: '刷新', currentDay: '当前统计日：' },
+      header: { refresh: '刷新', currentDay: '当前统计日：' },
       activity: { title: '牛马积极性', all: 'All', keys: 'Keys', mouse: 'Mouse', mostActiveMonth: '最积极的月份', mostActiveDay: '最积极的天', fewer: 'Fewer', more: 'More' },
       range: { day: '当日', week: '本周', month: '本月', custom: '自定义' },
       panel: { keyRank: '键位排行 (Top 20)', mouseDetail: '鼠标明细', trend: '腱鞘炎趋势', trendWeek: '每周', trendMonth: '每月', trendYear: '每年' },
@@ -42,7 +42,7 @@
     },
     en: {
       nav: { dashboard: 'Dashboard', preferences: 'Preferences' },
-      header: { export: 'Export', refresh: 'Refresh', currentDay: 'Current day: ' },
+      header: { refresh: 'Refresh', currentDay: 'Current day: ' },
       activity: { title: 'Activity', all: 'All', keys: 'Keys', mouse: 'Mouse', mostActiveMonth: 'Most active month', mostActiveDay: 'Most active day', fewer: 'Fewer', more: 'More' },
       range: { day: 'Today', week: 'This week', month: 'This month', custom: 'Custom' },
       panel: { keyRank: 'Key Ranking (Top 20)', mouseDetail: 'Mouse Details', trend: 'Tenosynovitis Trend', trendWeek: 'Weekly', trendMonth: 'Monthly', trendYear: 'Yearly' },
@@ -672,8 +672,6 @@
         document.getElementById('headerTitle').textContent = t(page === 'dashboard' ? 'nav.dashboard' : 'nav.preferences');
         document.getElementById('headerDate').style.visibility = page === 'dashboard' ? 'visible' : 'hidden';
         if (refreshBtn) refreshBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
-        const exportBtn = document.getElementById('headerExportBtn');
-        if (exportBtn) exportBtn.style.display = page === 'dashboard' ? 'inline-flex' : 'none';
         if (page === 'preferences') {
           loadData().then(() => initPrefsForm());
         } else if (page === 'dashboard') {
@@ -688,28 +686,6 @@
     if (refreshBtn) {
       refreshBtn.style.display = 'inline-flex';
       refreshBtn.onclick = doRefresh;
-    }
-    const exportBtn = document.getElementById('headerExportBtn');
-    if (exportBtn) {
-      exportBtn.style.display = 'inline-flex';
-      exportBtn.onclick = doExport;
-    }
-  }
-
-  async function doExport() {
-    try {
-      const res = await fetch('/api/export');
-      if (!res.ok) throw new Error(res.statusText);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'keycounter-export.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('doExport failed:', e);
-      alert('导出失败：请先在项目目录运行 node api/index.js 启动 API 服务。');
     }
   }
 

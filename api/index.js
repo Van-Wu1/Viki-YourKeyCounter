@@ -889,28 +889,6 @@ app.get('/api/data', (req, res) => {
   res.json(getDashboardData());
 });
 
-// Export all data as JSON
-app.get('/api/export', (req, res) => {
-  const data = getDashboardData();
-  const days = data.days.map((id) => {
-    const d = data.dayData[id];
-    return d ? { dayId: id, totals: d.totals, perKey: d.perKey || {} } : null;
-  }).filter(Boolean);
-
-  const exportData = {
-    exportedAt: new Date().toISOString(),
-    version: '1.0',
-    meta: { DayId: data.currentDayId },
-    totals: data.totals,
-    days
-  };
-
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', 'attachment; filename="keycounter-export.json"');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.json(exportData);
-});
-
 // Save gui.ini (Preferences)
 app.post('/api/prefs', (req, res) => {
   const { content } = req.body;
