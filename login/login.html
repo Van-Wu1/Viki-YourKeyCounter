@@ -208,6 +208,29 @@
       if (arrow) arrow.classList.toggle('hidden', loading);
     }
 
+    async function tryAutoLogin() {
+      const hint = document.getElementById('login-hint');
+      try {
+        // 尝试用本地保存的 session 恢复登录
+        await fetch(API_BASE + '/api/cloud/bootstrap', { method: 'POST' });
+      } catch (_) {
+        return;
+      }
+      try {
+        const res = await fetch(API_BASE + '/api/cloud/me');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json || !json.ok || !json.user) return;
+        const displayName = json.user.displayName || json.user.email || '';
+        if (displayName) {
+          document.getElementById('welcome-name').textContent = displayName;
+        }
+        showView('view-welcome');
+      } catch (_) {
+        // 忽略自动登录失败，停留在登录界面
+      }
+    }
+
     document.getElementById('toggle-pwd').onclick = () => {
       const inp = document.getElementById('login-password');
       const eye = document.getElementById('icon-eye');
@@ -330,6 +353,9 @@
     document.getElementById('btn-enter').onclick = () => {
       try { require('electron').ipcRenderer.send('login-success'); } catch(e) { window.close(); }
     };
+
+    // 启动时先尝试自动登录（记住我）
+    tryAutoLogin();
   </script>
 </body>
 </html>

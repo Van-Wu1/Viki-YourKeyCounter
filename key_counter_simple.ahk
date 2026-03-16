@@ -56,12 +56,9 @@ StartUp() {
     global
     SetWorkingDir A_ScriptDir
     StartApi()
-    ; 尝试用本地 session 自动登录
-    if (TryAutoLogin()) {
-        StartAfterLogin()
-        return
-    }
-    ; 弹出 Electron 登录窗口
+    ; 统一走 Electron 登录窗口：
+    ; - 有有效 session：Electron 自己显示“登录成功/欢迎”界面后退出
+    ; - 无 session：用户输入账号密码，成功后退出
     if (!ShowLoginElectron()) {
         ExitApp()
     }
@@ -848,8 +845,10 @@ ExitAppLabel(*) {
         dashboardPid := 0
     }
     CloseWidgetProcess()
+    ; 关闭所有相关窗口（Dashboard、Widget、登录）
     try WinClose("KeyCounter Dashboard")
     try WinClose("KeyCounter Widget")
+    try WinClose("KeyCounter 登录")
     ExitApp()
 }
 
